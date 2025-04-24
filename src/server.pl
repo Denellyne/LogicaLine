@@ -13,6 +13,7 @@ create_server(Port) :-
 dispatch(AcceptFd) :-
         tcp_accept(AcceptFd, Socket, Peer),
         thread_create(process_client(Socket, Peer), _, [ detached(true) ]),
+        writeln("New connection"),
         dispatch(AcceptFd).
 
 
@@ -28,10 +29,10 @@ close_connection(StreamPair) :-
   close(StreamPair).
 
 handle_service(StreamPair) :-
-    write("Input:"),
+    % write("Input:"),
     read_line_to_string(StreamPair, Int),
-    writeln(Int),
     (  Int == end_of_file -> writeln("Connection dropped"),fail;
+      writeln(Int),
       handle_service(StreamPair)
     ).
     
