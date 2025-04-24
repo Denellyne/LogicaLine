@@ -20,10 +20,13 @@ close_connection(In, Out) :-
 talk(In,Out) :-
     writeln("Input:"),
     read(Input),nl,
-    writeln(Input),
-    read(In, Int),
-    (  Int == end_of_file -> writeln("Connection dropped"),fail;
-      write(Out,Input),
-      talk(In,Out)
-    ).
+      writeln(Out,Input),
+    flush_output(Out),
+    % read(In, Int),
+    % writeln(Int),
+    talk(In,Out).
+    % (  Int == end_of_file -> writeln("Connection dropped"),fail;
+      % writeln(Out,Input),
+      % talk(In,Out)
+    % ).
 
