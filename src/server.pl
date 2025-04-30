@@ -6,33 +6,51 @@ create_server(Port) :-
       tcp_listen(Socket, 5),
       tcp_open_socket(Socket, StreamPair),
       stream_pair(StreamPair, AcceptFd, _),
-      dispatch(AcceptFd).
+      dispatch(AcceptFd,[]).
 
 
+:- dynamic connections/1.
+connections([]).
 
-dispatch(AcceptFd) :-
+dispatch(AcceptFd,Connections) :-
         tcp_accept(AcceptFd, Socket, Peer),
         thread_create(process_client(Socket, Peer), _, [ detached(true) ]),
         writeln("New connection"),
-        dispatch(AcceptFd).
+        dispatch(AcceptFd,Connections).
 
 
 process_client(Socket, _Peer) :-
     setup_call_cleanup(
-        tcp_open_socket(Socket, StreamPair),
-        handle_service(StreamPair),
-        close_connection(StreamPair)
+        tcp_open_socket(Socket, In,Out),
+        handle_client(In,Out),
+        close_connection(In,Out)
     ).
 
-close_connection(StreamPair) :-
-  write("Closing stream"),
-  close(StreamPair).
+close_connection(In, Out) :-
+        write("Closing stream"),
+        close(In, [force(true)]),
+        close(Out, [force(true)]).
 
-handle_service(StreamPair) :-
-    % write("Input:"),
-    read_line_to_string(StreamPair, Int),
-    (  Int == end_of_file -> writeln("Connection dropped"),fail;
-      writeln(Int),
-      handle_service(StreamPair)
+handle_client(In,Out) :-
+  assert(connections(Out)),
+  handle_service(In,Out).
+
+send_message_to_client(_,[]).
+send_message_to_client(Input,[Out|Connections]) :- 
+    writeln(Out,Input),
+    flush_output(Out),
+    send_message_to_client(Input,Connections).
+  
+send_message(Input) :-
+  bagof(X,connections(X),Connections),
+  send_message_to_client(Input,Connections).
+  
+
+handle_service(In,Out) :-
+    read_line_to_string(In, Input),
+    (  Input == end_of_file -> writeln("Connection dropped"),fail;
+      writeln(Input),
+      send_message(Input),
+      handle_service(In,Out)
     ).
     
