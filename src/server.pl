@@ -10,7 +10,6 @@ create_server(Port) :-
 
 
 :- dynamic connections/1.
-connections([]).
 
 dispatch(AcceptFd,Connections) :-
         tcp_accept(AcceptFd, Socket, Peer),
@@ -32,12 +31,13 @@ close_connection(In, Out) :-
         close(Out, [force(true)]).
 
 handle_client(In,Out) :-
-  assert(connections(Out)),
+  assertz(connections(Out)),
   handle_service(In,Out).
 
 send_message_to_client(_,[]).
 send_message_to_client(Input,[Out|Connections]) :- 
-    writeln(Out,Input),
+    copy_term(Input,String),
+    writeln(Out,String),
     flush_output(Out),
     send_message_to_client(Input,Connections).
   

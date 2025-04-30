@@ -10,21 +10,28 @@ setup_client(Port) :-
     
   setup_call_cleanup(
     tcp_open_socket(Socket, In, Out),
-    talk(In, Out),
+    handle_connection(In, Out),
     close_connection(In, Out)).
 
 close_connection(In, Out) :-
         close(In, [force(true)]),
         close(Out, [force(true)]).
 
-talk(In,Out) :-
+handle_connection(In,Out) :-
+  thread_create(receive_messages(In) , _ , [detached(true)]),
+  send_messages(Out).
+
+receive_messages(In) :-
+    read_line_to_string(In, Input),
+    (  Input == end_of_file -> writeln("Connection dropped"),fail;
+      writeln(Input),
+      receive_messages(In)
+    ).
+
+send_messages(Out) :-
     writeln("Input:"),
     read(Input),nl,
     writeln(Out,Input),
     flush_output(Out),
-    read_line_to_string(In, Int),
-    (  Int == end_of_file -> writeln("Connection dropped"),fail;
-      writeln(Int),
-      talk(In,Out)
-    ).
+    send_messages(Out).
 
