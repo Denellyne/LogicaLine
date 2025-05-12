@@ -36,8 +36,7 @@ handle_client(In,Out,Peer) :-
   ip_name(Peer,Ip),
   findall(X,aliases(Ip,X),Aliases),
   ( Aliases == [] -> 
-  writeln(Out,"Input the alias from which you wish to be called by:"),
-  flush_output(Out),
+  write_to_stream(Out,"Input the alias from which you wish to be called by:"),
   set_stream(In,timeout(60)),
   catch(read_line_to_string(In, Input),_, fail),
   set_stream(In,timeout(infinite)),
@@ -51,15 +50,27 @@ handle_client(In,Out,Peer) :-
 send_message_to_client(_,[]).
 send_message_to_client(Input,[Out|Connections]) :- 
     copy_term(Input,String),
-    writeln(Out,String),
-    flush_output(Out),
+    write_to_stream(Out,String),
     send_message_to_client(Input,Connections).
-  
+
+write_to_stream(Stream,String) :- 
+  writeln(Stream,String),
+  flush_output(Stream).
+
 send_message(Input,Out,Alias) :-
   bagof(X,connections(X),Connections),
   delete(Connections,Out,ConnectionsParsed),
 
-  string_concat(Alias,Input,String),
+  get_time(Timestamp),
+  format_time(string(Time),"%a, %d %b %Y %T ",Timestamp),
+  string_concat(Alias,Input,String_No_Date),
+  string_concat(Time,String_No_Date,String),
+
+  setup_call_cleanup(
+  open("messageHistory.txt",append,Stream),
+  write_to_stream(Stream,String),
+  close(Stream)),
+
   send_message_to_client(String,ConnectionsParsed).
   
 
