@@ -41,11 +41,14 @@ receive_messages(In) :-
       receive_messages(In)
     ).
 
+write_to_stream(Stream,String) :- 
+  writeln(Stream,String),
+  flush_output(Stream).
+
 send_messages(Out) :-
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
-    writeln(Out,String),
-    flush_output(Out),
+    write_to_stream(Out,String),
     send_messages(Out).
 

@@ -31,18 +31,26 @@ close_connection(In, Out) :-
         close(In, [force(true)]),
         close(Out, [force(true)]).
 
-
-handle_client(In,Out,Peer) :-
-  ip_name(Peer,Ip),
+check_user_has_alias(In,Out,Ip) :-
   findall(X,aliases(Ip,X),Aliases),
   ( Aliases == [] -> 
-  write_to_stream(Out,"Input the alias from which you wish to be called by:"),
+  write_to_stream(Out,"Input the alias you wish to be called by:"),
   set_stream(In,timeout(60)),
   catch(read_line_to_string(In, Input),_, fail),
   set_stream(In,timeout(infinite)),
-  assertz(aliases(Ip,Input));true),
-  
+  assertz(aliases(Ip,Input));true).
+
+broadcast_notification(Message) :-
+  findall(X,connections(X),Connections),
+  send_message_to_client(Message,Connections).
+
+handle_client(In,Out,Peer) :-
+  ip_name(Peer,Ip),
+  check_user_has_alias(In,Out,Ip),
   aliases(Ip,Alias),
+  string_concat(Alias," has joined the server", Notification),
+  broadcast_notification(Notification),
+
   assertz(connections(Out)),
   string_concat(Alias,": ",Nickname),
   handle_service(In,Out,Nickname).
@@ -57,28 +65,31 @@ write_to_stream(Stream,String) :-
   writeln(Stream,String),
   flush_output(Stream).
 
-send_message(Input,Out,Alias) :-
-  bagof(X,connections(X),Connections),
-  delete(Connections,Out,ConnectionsParsed),
-
+format_string(Alias,Input,String) :-
   get_time(Timestamp),
   format_time(string(Time),"%a, %d %b %Y %T ",Timestamp),
   string_concat(Alias,Input,String_No_Date),
-  string_concat(Time,String_No_Date,String),
+  string_concat(Time,String_No_Date,String).
+
+broadcast_message(Input,Out,Alias) :-
+  findall(X,connections(X),Connections),
+  % delete(Connections,Out,ConnectionsParsed),
+
+  format_string(Alias,Input,String),
 
   setup_call_cleanup(
   open("messageHistory.txt",append,Stream),
   write_to_stream(Stream,String),
   close(Stream)),
 
-  send_message_to_client(String,ConnectionsParsed).
+  writeln(String),
+  send_message_to_client(String,Connections).
   
 
 handle_service(In,Out,Alias) :-
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail;
-      writeln(Input),
-      send_message(Input,Out,Alias),
+      broadcast_message(Input,Out,Alias),
       handle_service(In,Out,Alias)
     ).
     
