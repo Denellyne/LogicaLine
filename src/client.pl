@@ -2,7 +2,7 @@
 :- use_module(library(readutil)).
 
 
-setup_client_ip(Ip,Port):-
+setup_client(Ip,Port):-
   setup_call_catcher_cleanup(
     tcp_socket(Socket),
     tcp_connect(Socket, Ip:Port),
