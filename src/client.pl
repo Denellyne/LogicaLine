@@ -36,10 +36,11 @@ handle_connection(In,Out) :-
 
 receive_messages(In) :-
     read_line_to_string(In, Input),
-    (  Input == end_of_file -> writeln("Connection dropped"),fail;
-      writeln(Input),
-      receive_messages(In)
-    ).
+      (  Input == end_of_file -> writeln("Connection dropped"),fail;
+        writeln(Input),
+        receive_messages(In)
+      ).
+    
 
 write_to_stream(Stream,String) :- 
   writeln(Stream,String),
@@ -49,6 +50,8 @@ send_messages(Out) :-
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
-    write_to_stream(Out,String),
-    send_messages(Out).
+    ( String == "DISCONNECT" -> writeln("Disconnecting..."),halt();
+      write_to_stream(Out,String),
+      send_messages(Out)
+    ).
 
