@@ -1,6 +1,9 @@
 :- use_module(library(socket)).
+:- use_module(library(pcre)).
+
 
 create_server(Port) :-
+      init_map,
       tcp_socket(Socket),
       tcp_bind(Socket, Port),
       tcp_listen(Socket, 5),
@@ -10,6 +13,32 @@ create_server(Port) :-
 
 :- dynamic connections/1.
 :- dynamic aliases/2.
+:- dynamic word_map/2.
+:- dynamic message_map/2.
+
+
+
+init_map :-
+    ( exists_file("messageHistory.txt") -> 
+        open("messageHistory.txt", read, Stream),
+        load_messages(Stream),
+        close(Stream)
+    ; true
+    ).
+
+load_messages(Stream) :-
+    read_line_to_string(Stream, Line),
+    ( Line == end_of_file -> true
+    ; 
+    parse_message(Line, Timestamp, Message),
+    assertz(message_map(Timestamp, Line)),
+    add_message(Message, Timestamp),
+    load_messages(Stream)
+    ).
+
+parse_message(Line, Timestamp, Message) :-
+    sub_string(Line, 0, 25, _, Timestamp),
+    sub_string(Line, 25, _, 0, Message).
 
 dispatch(AcceptFd,Connections) :-
         tcp_accept(AcceptFd, Socket, Peer),
@@ -61,35 +90,77 @@ send_message_to_client(Input,[Out|Connections]) :-
     write_to_stream(Out,String),
     send_message_to_client(Input,Connections).
 
+
+send_message_to_client_list([], _).
+send_message_to_client_list([Message|Rest], Clients) :-
+    send_message_to_client(Message, Clients),
+    send_message_to_client_list(Rest, Clients).
+
 write_to_stream(Stream,String) :- 
   writeln(Stream,String),
   flush_output(Stream).
 
-format_string(Alias,Input,String) :-
-  get_time(Timestamp),
-  format_time(string(Time),"%a, %d %b %Y %T ",Timestamp),
+format_string(Alias,Input,String, TimeStamp) :-
+  get_time(TimestampCurr),
+  format_time(string(Time),"%a, %d %b %Y %T ",TimestampCurr),
+  TimeStamp = Time,
   string_concat(Alias,Input,String_No_Date),
   string_concat(Time,String_No_Date,String).
 
 broadcast_message(Input,Out,Alias) :-
   findall(X,connections(X),Connections),
   % delete(Connections,Out,ConnectionsParsed),
-
-  format_string(Alias,Input,String),
-
+  format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
   open("messageHistory.txt",append,Stream),
   write_to_stream(Stream,String),
   close(Stream)),
 
   writeln(String),
-  send_message_to_client(String,Connections).
+  send_message_to_client(String,Connections),
+  add_message(Input, Timestamp),
+  assertz(message_map(Timestamp, String)).
   
 
 handle_service(In,Out,Alias) :-
     read_line_to_string(In, Input),
-    (  Input == end_of_file -> writeln("Connection dropped"),fail;
-      broadcast_message(Input,Out,Alias),
-      handle_service(In,Out,Alias)
+    (  Input == end_of_file -> writeln("Connection dropped"),fail
+       ;
+       sub_string(Input,0,7, _, "/search") ->
+           sub_string(Input,8,_,0, Message),
+           search_message(Message, Results),
+           send_message_to_client("Search results:", [Out]),
+           send_message_to_client_list(Results, [Out]),
+           handle_service(In,Out,Alias)
+       ;     
+       broadcast_message(Input,Out,Alias),
+       handle_service(In,Out,Alias)
     ).
-    
+   
+
+add_message(Message, Timestamp) :-
+    split_string(Message, Words),
+    exclude(==( ""), Words, FinalWords),
+    maplist(update_word_map(Timestamp), FinalWords).
+
+split_string(String, Words) :-
+    split_string(String, " ", ".,!?:;\"'", Words). 
+
+
+update_word_map(Timestamp, Word) :-
+    string_lower(Word, LowerWord),
+    ( word_map(LowerWord, List) ->
+        (member(Timestamp, List) -> true
+        ;  
+         retract(word_map(LowerWord, List)),
+         assertz(word_map(LowerWord, [Timestamp|List]))
+        )
+    ; assertz(word_map(LowerWord, [Timestamp]))
+    ).
+
+
+search_message(Text, Results) :-
+    string_lower(Text, LowerText),
+    word_map(LowerText, Timestamps),
+    findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
+search_message(_, []).

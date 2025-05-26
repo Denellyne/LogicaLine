@@ -1,5 +1,6 @@
 :- use_module(library(socket)).
 :- use_module(library(readutil)).
+:- use_module(library(pcre)).
 
 
 setup_client(Ip,Port):-
