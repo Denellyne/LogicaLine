@@ -9,6 +9,7 @@ create_server(Port) :-
       tcp_listen(Socket, 5),
       tcp_open_socket(Socket, StreamPair),
       stream_pair(StreamPair, AcceptFd, _),
+      writeln("Server initialized"),
       dispatch(AcceptFd,[]).
 
 :- dynamic ips/1.
@@ -129,7 +130,7 @@ broadcast_message(Input,Out,Alias) :-
   assertz(message_map(Timestamp, String)).
   
 concat_alias_to_string(String,[Alias|_],Str) :-
-  writeln(Alias),
+  % writeln(Alias),
   string_concat(String,Alias,StrTemp),
   string_concat(StrTemp,",",Str).
 
