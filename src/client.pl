@@ -51,7 +51,7 @@ send_messages(Out) :-
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
-    ( String == "DISCONNECT" -> writeln("Disconnecting..."),halt();
+    ( String == "/quit" -> writeln("Disconnecting..."),halt();
       write_to_stream(Out,String),
       send_messages(Out)
     ).

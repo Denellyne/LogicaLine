@@ -57,11 +57,11 @@ process_client(Socket, Peer) :-
 
 close_connection(In, Out,Peer) :-
         write("Closing stream"),
+        ip_name(Peer,Ip),
         aliases(Ip,Alias),
         string_concat(Alias," has disconnected from the server", Notification),
         broadcast_notification(Notification),
         retract(connections(Out)),
-        ip_name(Peer,Ip),
         retract(ips(Ip)),
         close(In, [force(true)]),
         close(Out, [force(true)]).
