@@ -11,6 +11,7 @@ create_server(Port) :-
       stream_pair(StreamPair, AcceptFd, _),
       dispatch(AcceptFd,[]).
 
+:- dynamic ips/1.
 :- dynamic connections/1.
 :- dynamic aliases/2.
 :- dynamic word_map/2.
@@ -51,12 +52,17 @@ process_client(Socket, Peer) :-
     setup_call_cleanup(
         tcp_open_socket(Socket,In,Out),
         handle_client(In,Out,Peer),
-        close_connection(In,Out)
+        close_connection(In,Out,Peer)
     ).
 
-close_connection(In, Out) :-
+close_connection(In, Out,Peer) :-
         write("Closing stream"),
+        aliases(Ip,Alias),
+        string_concat(Alias," has disconnected from the server", Notification),
+        broadcast_notification(Notification),
         retract(connections(Out)),
+        ip_name(Peer,Ip),
+        retract(ips(Ip)),
         close(In, [force(true)]),
         close(Out, [force(true)]).
 
@@ -67,7 +73,8 @@ check_user_has_alias(In,Out,Ip) :-
   set_stream(In,timeout(60)),
   catch(read_line_to_string(In, Input),_, fail),
   set_stream(In,timeout(infinite)),
-  assertz(aliases(Ip,Input));true).
+  assertz(aliases(Ip,Input));true),
+  assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
   findall(X,connections(X),Connections),
@@ -121,7 +128,24 @@ broadcast_message(Input,Out,Alias) :-
   add_message(Input, Timestamp),
   assertz(message_map(Timestamp, String)).
   
+concat_alias_to_string(String,[Alias|_],Str) :-
+  writeln(Alias),
+  string_concat(String,Alias,StrTemp),
+  string_concat(StrTemp,",",Str).
 
+send_user_list(String,[],Out) :-
+  send_message_to_client(String,[Out]).
+
+send_user_list(String,[Ip|Ips],Out) :-
+  findall(X,aliases(Ip,X),Aliases),
+  concat_alias_to_string(String,Aliases,Str),
+  send_user_list(Str,Ips,Out).
+  
+
+send_user_list(Out,Str) :-
+  findall(X,ips(X),Ips),
+  send_user_list(Str,Ips,Out).
+    
 handle_service(In,Out,Alias) :-
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
@@ -133,6 +157,10 @@ handle_service(In,Out,Alias) :-
            send_message_to_client_list(Results, [Out]),
            handle_service(In,Out,Alias)
        ;     
+       sub_string(Input,0,6,_,"/users") ->
+       send_user_list(Out,"Users:"),
+       handle_service(In,Out,Alias)
+       ;
        broadcast_message(Input,Out,Alias),
        handle_service(In,Out,Alias)
     ).
