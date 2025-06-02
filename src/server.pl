@@ -69,17 +69,21 @@ close_connection(StreamPair,Peer) :-
 check_user_has_alias(StreamPair,Ip) :-
   stream_pair(StreamPair,In,Out),
   findall(X,aliases(Ip,X),Aliases),
+  set_stream(In,timeout(60)),
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
-  set_stream(In,timeout(60)),
   catch(read_line_to_string(In, Input),_, fail),
-  set_stream(In,timeout(infinite)),
   assertz(aliases(Ip,Input));true),
   assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
   findall(X,connections(X),Connections),
   send_message_to_client(Message,Connections).
+
+keep_alive(StreamPair) :-
+  sleep(15),
+  write_to_stream(StreamPair,""),
+  keep_alive(StreamPair).
 
 handle_client(StreamPair,Peer) :-
   ip_name(Peer,Ip),
@@ -88,6 +92,7 @@ handle_client(StreamPair,Peer) :-
   string_concat(Alias," has joined the server", Notification),
   broadcast_notification(Notification),
 
+  thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   assertz(connections(StreamPair)),
   string_concat(Alias,": ",Nickname),
   handle_service(StreamPair,Nickname).
@@ -149,7 +154,7 @@ send_user_list(StreamPair,Str) :-
   send_user_list(Str,Ips,StreamPair).
     
 handle_service(StreamPair,Alias) :-
-    stream_pair(StreamPair,In,Out),
+    stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
        ;
@@ -164,6 +169,7 @@ handle_service(StreamPair,Alias) :-
        send_user_list(StreamPair,"Users:"),
        handle_service(StreamPair,Alias)
        ;
+       string_length(Input,0) -> handle_service(StreamPair,Alias);
        broadcast_message(Input,Alias),
        handle_service(StreamPair,Alias)
     ).

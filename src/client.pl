@@ -25,16 +25,25 @@ setup_client(Port) :-
 close_connection(StreamPair) :-
         close(StreamPair,[force(true)]).
 
+keep_alive(StreamPair) :-
+  sleep(15),
+  write_to_stream(StreamPair,""),
+  keep_alive(StreamPair).
+
 handle_connection(StreamPair) :-
+  stream_pair(StreamPair,In,_),
+  set_stream(In,timeout(60)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
+  thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   send_messages(StreamPair).
 
 receive_messages(StreamPair) :-
     stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
       (  Input == end_of_file -> writeln("Connection dropped"),fail;
-        writeln(Input),
-        receive_messages(In)
+       string_length(Input,0) -> receive_messages(StreamPair);
+       writeln(Input),
+       receive_messages(StreamPair)
       ).
     
 
