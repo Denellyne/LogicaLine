@@ -31,7 +31,6 @@ keep_alive(StreamPair) :-
 handle_connection(StreamPair) :-
   stream_pair(StreamPair,In,_),
   set_stream(StreamPair,timeout(60)),
-  set_stream(StreamPair,buffer_size(512)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   send_messages(StreamPair).

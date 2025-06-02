@@ -15,6 +15,7 @@ create_server(Port) :-
       tcp_open_socket(Socket, StreamPair),
       stream_pair(StreamPair, AcceptFd, _),
       writeln("Server initialized"),
+      thread_create(check_streams_errors(), _, [ detached(true) ]),
       dispatch(AcceptFd,[]).
 
 check_streams_errors([]).
@@ -99,7 +100,6 @@ keep_alive(StreamPair) :-
 handle_client(StreamPair,Peer) :-
   stream_pair(StreamPair,In,_),
   set_stream(StreamPair,timeout(60)),
-  set_stream(StreamPair,buffer_size(512)),
   ip_name(Peer,Ip),
   check_user_has_alias(StreamPair,Ip),
   aliases(Ip,Alias),
