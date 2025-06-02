@@ -52,8 +52,8 @@ write_to_stream(StreamPair,String) :-
   flush_output(Out).
 
 send_messages(StreamPair) :-
-    stream_property(StreamPair,error(err)),
-    err == true -> fail;
+    stream_property(StreamPair,error(Err)),
+    Err == true -> fail;
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),

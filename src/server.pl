@@ -1,6 +1,11 @@
 :- use_module(library(socket)).
 :- use_module(library(pcre)).
 
+:- dynamic ips/1.
+:- dynamic connections/1.
+:- dynamic aliases/2.
+:- dynamic word_map/2.
+:- dynamic message_map/2.
 
 create_server(Port) :-
       init_map,
@@ -12,11 +17,20 @@ create_server(Port) :-
       writeln("Server initialized"),
       dispatch(AcceptFd,[]).
 
-:- dynamic ips/1.
-:- dynamic connections/1.
-:- dynamic aliases/2.
-:- dynamic word_map/2.
-:- dynamic message_map/2.
+check_streams_errors([]).
+check_streams_errors([Stream|Streams]) :-
+  stream_property(Stream,error(Err)),
+  Err == true -> close(Stream, [force(true)]),
+  check_streams_errors(Streams);
+  check_streams_errors(Streams).
+  
+
+check_streams_errors() :-
+  findall(X,connections(X),Streams),
+  sleep(15),
+  check_streams_errors(Streams),
+  check_streams_errors().
+
 
 init_map :-
     ( exists_file("messageHistory.txt") -> 
