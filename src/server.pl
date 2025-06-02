@@ -85,6 +85,7 @@ keep_alive(StreamPair) :-
 handle_client(StreamPair,Peer) :-
   stream_pair(StreamPair,In,_),
   set_stream(StreamPair,timeout(60)),
+  set_stream(StreamPair,buffer_size(512)),
   ip_name(Peer,Ip),
   check_user_has_alias(StreamPair,Ip),
   aliases(Ip,Alias),

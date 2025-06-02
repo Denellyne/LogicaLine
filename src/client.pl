@@ -31,6 +31,7 @@ keep_alive(StreamPair) :-
 handle_connection(StreamPair) :-
   stream_pair(StreamPair,In,_),
   set_stream(StreamPair,timeout(60)),
+  set_stream(StreamPair,buffer_size(512)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   send_messages(StreamPair).
@@ -51,6 +52,8 @@ write_to_stream(StreamPair,String) :-
   flush_output(Out).
 
 send_messages(StreamPair) :-
+    stream_property(StreamPair,error(err)),
+    err == true -> fail;
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
