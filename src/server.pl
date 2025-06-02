@@ -85,7 +85,7 @@ check_user_has_alias(StreamPair,Ip) :-
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
   catch(read_line_to_string(In, Input),_, fail),
-  assertz(aliases(Ip,Input)),
+  assertz(aliases(Ip,Input));true),
   assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
