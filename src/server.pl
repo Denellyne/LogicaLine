@@ -74,7 +74,7 @@ close_connection(StreamPair,Peer) :-
         ip_name(Peer,Ip),
         aliases(Ip,Alias),
         string_concat(Alias," has disconnected from the server", Notification),
-        broadcast_notification(Notification),
+        thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
         retract(connections(StreamPair)),
         retract(ips(Ip)),
         close(StreamPair, [force(true)]).
@@ -110,7 +110,7 @@ handle_client(StreamPair,Peer) :-
   writeln("a"),
   string_concat(Alias," has joined the server", Notification),
   writeln("a"),
-  broadcast_notification(Notification),
+  thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
   writeln("a"),
 
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
