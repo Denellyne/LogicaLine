@@ -18,8 +18,6 @@ create_server(Port) :-
 :- dynamic word_map/2.
 :- dynamic message_map/2.
 
-
-
 init_map :-
     ( exists_file("messageHistory.txt") -> 
         open("messageHistory.txt", read, Stream),
@@ -69,7 +67,6 @@ close_connection(StreamPair,Peer) :-
 check_user_has_alias(StreamPair,Ip) :-
   stream_pair(StreamPair,In,Out),
   findall(X,aliases(Ip,X),Aliases),
-  set_stream(In,timeout(60)),
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
   catch(read_line_to_string(In, Input),_, fail),
@@ -86,6 +83,8 @@ keep_alive(StreamPair) :-
   keep_alive(StreamPair).
 
 handle_client(StreamPair,Peer) :-
+  stream_pair(StreamPair,In,_),
+  set_stream(StreamPair,timeout(60)),
   ip_name(Peer,Ip),
   check_user_has_alias(StreamPair,Ip),
   aliases(Ip,Alias),

@@ -2,8 +2,6 @@
 :- use_module(library(readutil)).
 :- use_module(library(pcre)).
 
-
-
 setup_client(Ip,Port) :- 
   setup_call_cleanup(
     tcp_socket(Socket),
@@ -32,7 +30,7 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair) :-
   stream_pair(StreamPair,In,_),
-  set_stream(In,timeout(60)),
+  set_stream(StreamPair,timeout(60)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   send_messages(StreamPair).
