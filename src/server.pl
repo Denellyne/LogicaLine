@@ -99,26 +99,22 @@ keep_alive(StreamPair) :-
 
 handle_client(StreamPair,Peer) :-
   stream_pair(StreamPair,In,_),
-  writeln("a"),
+  writeln("Set Stream Timeout"),
   set_stream(StreamPair,timeout(60)),
-  writeln("a"),
+  writeln("Get Ip"),
   ip_name(Peer,Ip),
-  writeln("a"),
+  writeln("Check user has Alias"),
   check_user_has_alias(StreamPair,Ip),
-  writeln("a"),
   aliases(Ip,Alias),
-  writeln("a"),
+  writeln("Send User has joind"),
   string_concat(Alias," has joined the server", Notification),
-  writeln("a"),
   thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
-  writeln("a"),
+  writeln("Start Keep Alive thread"),
 
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
-  writeln("a"),
   assertz(connections(StreamPair)),
-  writeln("a"),
   string_concat(Alias,": ",Nickname),
-  writeln("a"),
+  writeln("Handle Client"),
   handle_service(StreamPair,Nickname).
 
 send_message_to_client(_,[]).
