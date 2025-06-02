@@ -51,23 +51,23 @@ dispatch(AcceptFd,Connections) :-
 
 process_client(Socket, Peer) :-
     setup_call_cleanup(
-        tcp_open_socket(Socket,In,Out),
-        handle_client(In,Out,Peer),
-        close_connection(In,Out,Peer)
+        tcp_open_socket(Socket,StreamPair),
+        handle_client(StreamPair,Peer),
+        close_connection(StreamPair,Peer)
     ).
 
-close_connection(In, Out,Peer) :-
+close_connection(StreamPair,Peer) :-
         write("Closing stream"),
         ip_name(Peer,Ip),
         aliases(Ip,Alias),
         string_concat(Alias," has disconnected from the server", Notification),
         broadcast_notification(Notification),
-        retract(connections(Out)),
+        retract(connections(StreamPair)),
         retract(ips(Ip)),
-        close(In, [force(true)]),
-        close(Out, [force(true)]).
+        close(StreamPair, [force(true)]).
 
-check_user_has_alias(In,Out,Ip) :-
+check_user_has_alias(StreamPair,Ip) :-
+  stream_pair(StreamPair,In,Out),
   findall(X,aliases(Ip,X),Aliases),
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
@@ -81,21 +81,21 @@ broadcast_notification(Message) :-
   findall(X,connections(X),Connections),
   send_message_to_client(Message,Connections).
 
-handle_client(In,Out,Peer) :-
+handle_client(StreamPair,Peer) :-
   ip_name(Peer,Ip),
-  check_user_has_alias(In,Out,Ip),
+  check_user_has_alias(StreamPair,Ip),
   aliases(Ip,Alias),
   string_concat(Alias," has joined the server", Notification),
   broadcast_notification(Notification),
 
-  assertz(connections(Out)),
+  assertz(connections(StreamPair)),
   string_concat(Alias,": ",Nickname),
-  handle_service(In,Out,Nickname).
+  handle_service(StreamPair,Nickname).
 
 send_message_to_client(_,[]).
-send_message_to_client(Input,[Out|Connections]) :- 
+send_message_to_client(Input,[StreamPair|Connections]) :- 
     copy_term(Input,String),
-    write_to_stream(Out,String),
+    write_to_stream(StreamPair,String),
     send_message_to_client(Input,Connections).
 
 
@@ -104,9 +104,10 @@ send_message_to_client_list([Message|Rest], Clients) :-
     send_message_to_client(Message, Clients),
     send_message_to_client_list(Rest, Clients).
 
-write_to_stream(Stream,String) :- 
-  writeln(Stream,String),
-  flush_output(Stream).
+write_to_stream(StreamPair,String) :- 
+  stream_pair(StreamPair,_,Out),
+  writeln(Out,String),
+  flush_output(Out).
 
 format_string(Alias,Input,String, TimeStamp) :-
   get_time(TimestampCurr),
@@ -115,7 +116,7 @@ format_string(Alias,Input,String, TimeStamp) :-
   string_concat(Alias,Input,String_No_Date),
   string_concat(Time,String_No_Date,String).
 
-broadcast_message(Input,Out,Alias) :-
+broadcast_message(Input,Alias) :-
   findall(X,connections(X),Connections),
   % delete(Connections,Out,ConnectionsParsed),
   format_string(Alias,Input,String, Timestamp),
@@ -134,36 +135,37 @@ concat_alias_to_string(String,[Alias|_],Str) :-
   string_concat(String,Alias,StrTemp),
   string_concat(StrTemp,",",Str).
 
-send_user_list(String,[],Out) :-
-  send_message_to_client(String,[Out]).
+send_user_list(String,[],StreamPair) :-
+  send_message_to_client(String,[StreamPair]).
 
-send_user_list(String,[Ip|Ips],Out) :-
+send_user_list(String,[Ip|Ips],StreamPair) :-
   findall(X,aliases(Ip,X),Aliases),
   concat_alias_to_string(String,Aliases,Str),
-  send_user_list(Str,Ips,Out).
+  send_user_list(Str,Ips,StreamPair).
   
 
-send_user_list(Out,Str) :-
+send_user_list(StreamPair,Str) :-
   findall(X,ips(X),Ips),
-  send_user_list(Str,Ips,Out).
+  send_user_list(Str,Ips,StreamPair).
     
-handle_service(In,Out,Alias) :-
+handle_service(StreamPair,Alias) :-
+    stream_pair(StreamPair,In,Out),
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
        ;
        sub_string(Input,0,7, _, "/search") ->
            sub_string(Input,8,_,0, Message),
            search_message(Message, Results),
-           send_message_to_client("Search results:", [Out]),
-           send_message_to_client_list(Results, [Out]),
-           handle_service(In,Out,Alias)
+           send_message_to_client("Search results:", [StreamPair]),
+           send_message_to_client_list(Results, [StreamPair]),
+           handle_service(StreamPair,Alias)
        ;     
        sub_string(Input,0,6,_,"/users") ->
-       send_user_list(Out,"Users:"),
-       handle_service(In,Out,Alias)
+       send_user_list(StreamPair,"Users:"),
+       handle_service(StreamPair,Alias)
        ;
-       broadcast_message(Input,Out,Alias),
-       handle_service(In,Out,Alias)
+       broadcast_message(Input,Alias),
+       handle_service(StreamPair,Alias)
     ).
    
 

@@ -3,39 +3,34 @@
 :- use_module(library(pcre)).
 
 
-setup_client(Ip,Port):-
-  setup_call_catcher_cleanup(
+
+setup_client(Ip,Port) :- 
+  setup_call_cleanup(
     tcp_socket(Socket),
     tcp_connect(Socket, Ip:Port),
-    exception(_),
-    tcp_close_socket(Socket)),
-  
-setup_call_cleanup(
-    tcp_open_socket(Socket, In, Out),
-    handle_connection(In, Out),
-    close_connection(In, Out)).
+  setup_call_cleanup(
+    tcp_open_socket(Socket,StreamPair),
+    handle_connection(StreamPair),
+    close_connection(StreamPair))).
 
 setup_client(Port) :- 
-  setup_call_catcher_cleanup(
+  setup_call_cleanup(
     tcp_socket(Socket),
     tcp_connect(Socket, localhost:Port),
-    exception(_),
-    tcp_close_socket(Socket)),
-    
   setup_call_cleanup(
-    tcp_open_socket(Socket, In, Out),
-    handle_connection(In, Out),
-    close_connection(In, Out)).
+    tcp_open_socket(Socket,StreamPair),
+    handle_connection(StreamPair),
+    close_connection(StreamPair))).
 
-close_connection(In, Out) :-
-        close(In, [force(true)]),
-        close(Out, [force(true)]).
+close_connection(StreamPair) :-
+        close(StreamPair,[force(true)]).
 
-handle_connection(In,Out) :-
-  thread_create(receive_messages(In) , _ , [detached(true)]),
-  send_messages(Out).
+handle_connection(StreamPair) :-
+  thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
+  send_messages(StreamPair).
 
-receive_messages(In) :-
+receive_messages(StreamPair) :-
+    stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
       (  Input == end_of_file -> writeln("Connection dropped"),fail;
         writeln(Input),
@@ -43,16 +38,17 @@ receive_messages(In) :-
       ).
     
 
-write_to_stream(Stream,String) :- 
-  writeln(Stream,String),
-  flush_output(Stream).
+write_to_stream(StreamPair,String) :- 
+  stream_pair(StreamPair,_,Out),
+  writeln(Out,String),
+  flush_output(Out).
 
-send_messages(Out) :-
+send_messages(StreamPair) :-
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
     ( String == "/quit" -> writeln("Disconnecting..."),halt();
-      write_to_stream(Out,String),
-      send_messages(Out)
+      write_to_stream(StreamPair,String),
+      send_messages(StreamPair)
     ).
 
