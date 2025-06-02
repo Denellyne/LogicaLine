@@ -194,7 +194,7 @@ handle_service(StreamPair,Alias) :-
        handle_service(StreamPair,Alias)
        ;
        string_length(Input,0) -> handle_service(StreamPair,Alias);
-       broadcast_message(Input,Alias),
+       thread_create(broadcast_message(Input,Alias), _, [ detached(true) ]),
        handle_service(StreamPair,Alias)
     ).
    
