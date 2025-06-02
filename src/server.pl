@@ -85,7 +85,7 @@ check_user_has_alias(StreamPair,Ip) :-
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
   catch(read_line_to_string(In, Input),_, fail),
-  assertz(aliases(Ip,Input));true),
+  assertz(aliases(Ip,Input)),
   assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
@@ -99,16 +99,26 @@ keep_alive(StreamPair) :-
 
 handle_client(StreamPair,Peer) :-
   stream_pair(StreamPair,In,_),
+  writeln("a"),
   set_stream(StreamPair,timeout(60)),
+  writeln("a"),
   ip_name(Peer,Ip),
+  writeln("a"),
   check_user_has_alias(StreamPair,Ip),
+  writeln("a"),
   aliases(Ip,Alias),
+  writeln("a"),
   string_concat(Alias," has joined the server", Notification),
+  writeln("a"),
   broadcast_notification(Notification),
+  writeln("a"),
 
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
+  writeln("a"),
   assertz(connections(StreamPair)),
+  writeln("a"),
   string_concat(Alias,": ",Nickname),
+  writeln("a"),
   handle_service(StreamPair,Nickname).
 
 send_message_to_client(_,[]).

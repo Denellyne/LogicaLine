@@ -30,9 +30,9 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair) :-
   stream_pair(StreamPair,In,_),
-  set_stream(StreamPair,timeout(60)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
+  set_stream(StreamPair,timeout(60)),
   send_messages(StreamPair).
 
 receive_messages(StreamPair) :-
