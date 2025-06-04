@@ -45,8 +45,9 @@ handle_connection(StreamPair) :-
   atom_codes(PubKey, PubKeyBase64),
   phrase(base64(PubKeyBase64), PubKeyCodes),
   stream_pair(StreamPair,_,Out),
-  write_to_stream(StreamPair, "PUBLIC_KEY:"),
-  write_to_stream(StreamPair, PubKeyBase64),
+  format(string(PubKeyMessage), "PUBLIC_KEY:~w", [PubKeyBase64]),
+  write_to_stream(StreamPair, PubKeyMessage),
+ 
 
   stream_pair(StreamPair,In,_),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
@@ -57,6 +58,7 @@ handle_connection(StreamPair) :-
 receive_messages(StreamPair) :-
     stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
+    format("DEBUG: Received: ~w~n", [Input]),
       (  Input == end_of_file -> writeln("Connection dropped"),fail;
          string_length(Input,0) -> receive_messages(StreamPair);
          (   sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
