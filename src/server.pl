@@ -8,7 +8,7 @@
 :- dynamic message_map/2.
 
 create_server(Port) :-
-      init_map,
+      % init_map,
       tcp_socket(Socket),
       tcp_bind(Socket, Port),
       tcp_listen(Socket, 5),
@@ -78,13 +78,13 @@ close_connection(StreamPair,Peer) :-
         close(StreamPair, [force(true)]).
 
 check_user_has_alias(StreamPair,Ip) :-
-  stream_pair(StreamPair,In,Out),
-  findall(X,aliases(Ip,X),Aliases),
-  ( Aliases == [] -> 
-  write_to_stream(Out,"Input the alias you wish to be called by:"),
+  stream_pair(StreamPair,In,_),
+  retractall(aliases(Ip,_)),
   catch(read_line_to_string(In, Input),_, fail),
-  assertz(aliases(Ip,Input));true),
-  assertz(ips(Ip)).
+  assertz(aliases(Ip,Input)),
+  assertz(ips(Ip)),
+  write("Alias: "),
+  writeln(Input).
 
 broadcast_notification(Message) :-
   findall(X,connections(X),Connections),
@@ -111,9 +111,8 @@ handle_client(StreamPair,Peer) :-
 
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   assertz(connections(StreamPair)),
-  string_concat(Alias,": ",Nickname),
   writeln("Handle Client"),
-  handle_service(StreamPair,Nickname).
+  handle_service(StreamPair).
 
 send_message_to_client(_,[]).
 send_message_to_client(Input,[StreamPair|Connections]) :- 
@@ -139,17 +138,20 @@ format_string(Alias,Input,String, TimeStamp) :-
   string_concat(Alias,Input,String_No_Date),
   string_concat(Time,String_No_Date,String).
 
-broadcast_message(Input,Alias) :-
+broadcast_message(Input) :-
   findall(X,connections(X),Connections),
   % delete(Connections,Out,ConnectionsParsed),
-  format_string(Alias,Input,String, Timestamp),
+  % format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
   open("messageHistory.txt",append,Stream),
-  write_to_stream(Stream,String),
+  write_to_stream(Stream,Input),
   close(Stream)),
 
-  writeln(String),
-  send_message_to_client(String,Connections),
+  writeln(Input),
+  get_time(TimestampCurr),
+  format_time(string(Time),"%a, %d %b %Y %T ",TimestampCurr),
+  TimeStamp = Time,
+  send_message_to_client(Input,Connections),
   add_message(Input, Timestamp),
   assertz(message_map(Timestamp, String)).
   
@@ -171,7 +173,7 @@ send_user_list(StreamPair,Str) :-
   findall(X,ips(X),Ips),
   send_user_list(Str,Ips,StreamPair).
     
-handle_service(StreamPair,Alias) :-
+handle_service(StreamPair) :-
     stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
@@ -181,15 +183,15 @@ handle_service(StreamPair,Alias) :-
            search_message(Message, Results),
            send_message_to_client("Search results:", [StreamPair]),
            send_message_to_client_list(Results, [StreamPair]),
-           handle_service(StreamPair,Alias)
-       ;     
+          handle_service(StreamPair);     
        sub_string(Input,0,6,_,"/users") ->
        send_user_list(StreamPair,"Users:"),
-       handle_service(StreamPair,Alias)
+       handle_service(StreamPair)
        ;
-       string_length(Input,0) -> handle_service(StreamPair,Alias);
-       thread_create(broadcast_message(Input,Alias), _, [ detached(true) ]),
-       handle_service(StreamPair,Alias)
+       string_length(Input,0) -> handle_service(StreamPair);
+
+       thread_create(broadcast_message(Input), _, [ detached(true) ]),
+       handle_service(StreamPair)
     ).
    
 
