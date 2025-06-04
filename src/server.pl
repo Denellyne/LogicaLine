@@ -24,9 +24,7 @@ create_server(Port) :-
 
 check_streams_errors([]).
 check_streams_errors([Stream|Streams]) :-
-  stream_property(Stream,error(Err)),
-  Err == true -> close(Stream, [force(true)]),
-  check_streams_errors(Streams);
+  catch(write_to_stream(Stream,""),_,close(Stream,[force(true)])),
   check_streams_errors(Streams).
   
 

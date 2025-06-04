@@ -67,7 +67,7 @@ receive_messages(StreamPair) :-
              base64_decode_atom(PubKeyBase64, PubKeyBin),
             
              symmetric_key(MyKey),
-             rsa_public_encrypt(PubKeyBin, MyKey, EncryptedKey),
+             rsa_public_encrypt(PubKeyBin, MyKey, EncryptedKey, []),
              base64_encode_atom(EncryptedKey, EncryptedKeyBase64), 
              format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
              write_to_stream(StreamPair, ToSend),
@@ -82,7 +82,7 @@ receive_messages(StreamPair) :-
           ; 
               base64_decode_atom(EncryptedKeyBase64, EncryptedKey), 
               private_key(PrivKey),
-              rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey),
+              rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, []),
               assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
               format("Received symmetric key from ~w~n", [Sender_StreamPair]),
               receive_messages(StreamPair)
