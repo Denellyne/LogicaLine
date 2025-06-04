@@ -9,7 +9,7 @@
 :- dynamic public_key/2.
 :- dynamic symmetric_keys/3. % (StreamPair receiver, Chave simétrica, StreamPair Sender)
 :- dynamic all_keys_exchanged_notified/0.
-
+:- dynamic seen/1.
 
 create_server(Port) :-
       init_map,
@@ -84,14 +84,14 @@ close_connection(StreamPair,Peer) :-
         close(StreamPair, [force(true)]).
 
 check_user_has_alias(StreamPair,Ip) :-
-  stream_pair(StreamPair,In,Out),
-  findall(X,aliases(Ip,X),Aliases),
-  ( Aliases == [] -> 
-  write_to_stream(Out,"Input the alias you wish to be called by:"),
-  catch(read_line_to_string(In, Input),_, fail),
-  assertz(aliases(Ip,Input))
-  ;
-  true),
+  ( aliases(Ip, _) -> 
+      true  % Já tem alias, não pede novamente
+  ; 
+      stream_pair(StreamPair, In, Out),
+      write_to_stream(Out,"Input the alias you wish to be called by:"),
+      catch(read_line_to_string(In, Input),_, fail),
+      assertz(aliases(Ip, Input))
+  ), 
   assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
@@ -103,40 +103,38 @@ keep_alive(StreamPair) :-
   write_to_stream(StreamPair,""),
   keep_alive(StreamPair).
 
-handle_client(StreamPair,Peer) :-
-  stream_pair(StreamPair,In,Out),
-  read_line_to_string(In, Input),
-  (     sub_string(Input, 0, 11, _, "PUBLIC_KEY:") ->
-        sub_string(Input, 11, _, 0, PubKeyBase64),
-        base64(PubKeyBin, PubKeyBase64),
-        ip_name(Peer, Ip),
-        assertz(public_key(StreamPair, PubKeyBin)),
-        assertz(public_key(Ip, PubKeyBin)),
-        writeln("Chave pública recebida do cliente"),
-        format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair , PubKeyBase64]), % falta cifrar o ip com sha-256
-        findall(S, (connections(S), S \= StreamPair), OtherClients),
-        send_message_to_client(Notification, OtherClients),
-        handle_client(StreamPair, Peer)
-  ; 
-  writeln("Set Stream Timeout"),
-  set_stream(StreamPair,timeout(60)),
-  writeln("Get Ip"),
-  ip_name(Peer,Ip),
-  writeln("Check user has Alias"),
-  check_user_has_alias(StreamPair,Ip),
-  aliases(Ip,Alias),
-  writeln("Send User has joind"),
-  string_concat(Alias," has joined the server", Notification),
-  thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
-  writeln("Start Keep Alive thread"),
-
-  thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
-  assertz(connections(StreamPair)),
-  string_concat(Alias,": ",Nickname),
-  writeln("Handle Client"),
-  handle_service(StreamPair,Nickname)
-  ).
-  
+ handle_client(StreamPair, Peer) :-
+    stream_pair(StreamPair, In, Out),
+    (   read_line_to_string(In, Input),
+        sub_string(Input, 0, 11, _, "PUBLIC_KEY:") ->
+            sub_string(Input, 11, _, 0, PubKeyBase64),
+            base64(PubKeyBin, PubKeyBase64),
+            ip_name(Peer, Ip),
+            assertz(public_key(StreamPair, PubKeyBin)),
+            assertz(public_key(Ip, PubKeyBin)),
+            writeln("Chave pública recebida do cliente"),
+            format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair, PubKeyBase64]),
+            findall(S, (connections(S), S \= StreamPair), OtherClients),
+            send_message_to_client(Notification, OtherClients),
+            assertz(seen(StreamPair)),
+            writeln("Set Stream Timeout"),
+            set_stream(StreamPair, timeout(60)),
+            writeln("Get Ip"),
+            ip_name(Peer, Ip),
+            writeln("Check user has Alias"),
+            check_user_has_alias(StreamPair, Ip),
+            aliases(Ip, Alias),
+            writeln("Send User has joined"),
+            string_concat(Alias, " has joined the server", Notification2),
+            thread_create(broadcast_notification(Notification2), _, [detached(true)]),
+            writeln("Start Keep Alive thread"),
+            thread_create(keep_alive(StreamPair), _, [detached(true)]),
+            assertz(connections(StreamPair)),
+            string_concat(Alias, ": ", Nickname),
+            writeln("Handle Client"),
+            handle_service(StreamPair, Nickname)
+    ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
+    ). 
 
 send_message_to_client(_,[]).
 send_message_to_client(Input,[StreamPair|Connections]) :- 
@@ -163,7 +161,7 @@ format_string(Alias,Input,String, TimeStamp) :-
   string_concat(Time,String_No_Date,String).
 
 broadcast_message(Input,Alias, SenderStream) :-
-  findall(X,connections(X),Connections),
+  findall(X,(connections(X), X \= SenderStream),Connections),
   % delete(Connections,Out,ConnectionsParsed),
   format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
