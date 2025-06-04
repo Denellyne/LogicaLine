@@ -2,8 +2,6 @@
 :- use_module(library(readutil)).
 :- use_module(library(pcre)).
 
-
-
 setup_client(Ip,Port) :- 
   setup_call_cleanup(
     tcp_socket(Socket),
@@ -32,9 +30,9 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair) :-
   stream_pair(StreamPair,In,_),
-  set_stream(In,timeout(60)),
   thread_create(receive_messages(StreamPair) , _ , [detached(true)]),
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
+  set_stream(StreamPair,timeout(60)),
   send_messages(StreamPair).
 
 receive_messages(StreamPair) :-
@@ -53,6 +51,8 @@ write_to_stream(StreamPair,String) :-
   flush_output(Out).
 
 send_messages(StreamPair) :-
+    stream_property(StreamPair,error(Err)),
+    Err == true -> fail;
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),

@@ -1,6 +1,11 @@
 :- use_module(library(socket)).
 :- use_module(library(pcre)).
 
+:- dynamic ips/1.
+:- dynamic connections/1.
+:- dynamic aliases/2.
+:- dynamic word_map/2.
+:- dynamic message_map/2.
 
 create_server(Port) :-
       init_map,
@@ -10,14 +15,20 @@ create_server(Port) :-
       tcp_open_socket(Socket, StreamPair),
       stream_pair(StreamPair, AcceptFd, _),
       writeln("Server initialized"),
+      thread_create(check_streams_errors(), _, [ detached(true) ]),
       dispatch(AcceptFd,[]).
 
-:- dynamic ips/1.
-:- dynamic connections/1.
-:- dynamic aliases/2.
-:- dynamic word_map/2.
-:- dynamic message_map/2.
+check_streams_errors([]).
+check_streams_errors([Stream|Streams]) :-
+  catch(write_to_stream(Stream,""),_,close(Stream,[force(true)])),
+  check_streams_errors(Streams).
+  
 
+check_streams_errors() :-
+  findall(X,connections(X),Streams),
+  sleep(15),
+  check_streams_errors(Streams),
+  check_streams_errors().
 
 
 init_map :-
@@ -61,7 +72,7 @@ close_connection(StreamPair,Peer) :-
         ip_name(Peer,Ip),
         aliases(Ip,Alias),
         string_concat(Alias," has disconnected from the server", Notification),
-        broadcast_notification(Notification),
+        thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
         retract(connections(StreamPair)),
         retract(ips(Ip)),
         close(StreamPair, [force(true)]).
@@ -69,7 +80,6 @@ close_connection(StreamPair,Peer) :-
 check_user_has_alias(StreamPair,Ip) :-
   stream_pair(StreamPair,In,Out),
   findall(X,aliases(Ip,X),Aliases),
-  set_stream(In,timeout(60)),
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
   catch(read_line_to_string(In, Input),_, fail),
@@ -86,15 +96,23 @@ keep_alive(StreamPair) :-
   keep_alive(StreamPair).
 
 handle_client(StreamPair,Peer) :-
+  stream_pair(StreamPair,In,_),
+  writeln("Set Stream Timeout"),
+  set_stream(StreamPair,timeout(60)),
+  writeln("Get Ip"),
   ip_name(Peer,Ip),
+  writeln("Check user has Alias"),
   check_user_has_alias(StreamPair,Ip),
   aliases(Ip,Alias),
+  writeln("Send User has joind"),
   string_concat(Alias," has joined the server", Notification),
-  broadcast_notification(Notification),
+  thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
+  writeln("Start Keep Alive thread"),
 
   thread_create(keep_alive(StreamPair) , _ , [detached(true)]),
   assertz(connections(StreamPair)),
   string_concat(Alias,": ",Nickname),
+  writeln("Handle Client"),
   handle_service(StreamPair,Nickname).
 
 send_message_to_client(_,[]).
@@ -170,7 +188,7 @@ handle_service(StreamPair,Alias) :-
        handle_service(StreamPair,Alias)
        ;
        string_length(Input,0) -> handle_service(StreamPair,Alias);
-       broadcast_message(Input,Alias),
+       thread_create(broadcast_message(Input,Alias), _, [ detached(true) ]),
        handle_service(StreamPair,Alias)
     ).
    
