@@ -53,7 +53,6 @@ write_to_stream(StreamPair,String) :-
 send_messages(StreamPair) :-
     stream_property(StreamPair,error(Err)),
     Err == true -> fail;
-    writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
     ( String == "/quit" -> writeln("Disconnecting..."),halt();
@@ -61,3 +60,9 @@ send_messages(StreamPair) :-
       send_messages(StreamPair)
     ).
 
+%change the [XXX.XXX.XXX] into the desired server ip
+
+main :-
+    setup_client('XXX.XXX.XXX', 5000).
+
+:- initialization(main, main).
