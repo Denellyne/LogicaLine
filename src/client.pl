@@ -10,6 +10,7 @@
 :- dynamic public_key/1. 
 :- dynamic private_key/1.
 :- dynamic symmetric_key/1. 
+:- dynamic iv/1.
 
 
 
@@ -105,6 +106,9 @@ send_messages(StreamPair) :-
     writeln("Input:"),
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, String),
+    symmetric_key(SymmetricKey),
+    iv(IV),
+    crypto_data_encrypt(String, "aes-128-gcm" , SymmetricKey, IV, EncryptedString, []),
     ( String == "/quit" -> writeln("Disconnecting..."),halt();
       write_to_stream(StreamPair,String),
       send_messages(StreamPair)
@@ -127,10 +131,14 @@ load_keys_from_python(PrivateKeyBin, PublicKeyBin, SymmetricKeyBin) :-
         ),
         PrivateBase64 = Dict.get(private_key),
         PublicBase64 = Dict.get(public_key),
-        SymmetricBase64 = Dict.get(symmetric_key),
+        crypto_n_random_bytes(16, SymmetricKeyBin),  
+        crypto_n_random_bytes(12, IV),
         base64_decode_atom(PrivateBase64, PrivateKeyBin),
         base64_decode_atom(PublicBase64, PublicKeyBin),
-        base64_decode_atom(SymmetricBase64, SymmetricKeyBin)
+        assertz(private_key(PrivateKeyBin)),
+        assertz(public_key(PublicKeyBin)),
+        assertz(symmetric_key(SymmetricKeyBin)),
+        assertz(iv(IV))
     ;
         format("Python script failed with status: ~w~n", [ExitStatus]),
         fail
