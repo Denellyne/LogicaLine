@@ -74,80 +74,82 @@ handle_connection(StreamPair,Alias) :-
   write_to_stream(StreamPair,Alias),  
   send_messages(StreamPair,Alias).
 
- receive_messages(StreamPair) :-
-    writeln('[DEBUG 1] receive_messages entered'),
+
+receive_messages(StreamPair) :-
+    writeln(1),
     stream_pair(StreamPair, In, _),
-    writeln('[DEBUG 2] stream_pair extracted'),
+    writeln(2),
     read_line_to_string(In, Input),
-    format("[DEBUG 3] Input received: ~w~n", [Input]),
+    writeln(3),
     (
         Input == end_of_file ->
-            writeln("[DEBUG 4] Connection dropped"), fail
+            writeln(4), fail
         ;
         string_length(Input, 0) ->
-            writeln("[DEBUG 5] Empty input, retrying..."), receive_messages(StreamPair)
+            writeln(5), receive_messages(StreamPair)
         ;
         (
             sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
-                writeln("[DEBUG 6] Detected NEW_PUBLIC_KEY"),
+                writeln(6),
                 sub_string(Input, 15, _, 0, Rest),
-                format("[DEBUG 7] Rest: ~w~n", [Rest]),
+                writeln(7),
                 split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-                format("[DEBUG 8] Sender: ~w, Key: ~w~n", [Sender_StreamPair, PubKeyBase64]),
+                writeln(8),
                 base64_decode_atom(PubKeyBase64, PubKeyBin),
-                writeln("[DEBUG 9] Base64 decoded public key"),
+                writeln(9),
                 symmetric_key(MyKey),
-                writeln("[DEBUG 10] Symmetric key retrieved"),
+                writeln(10),
                 setup_call_cleanup(
                     open_string(PubKeyBin, PubStream),
                     ( load_public_key(PubStream, PublicKey),
-                      writeln("[DEBUG 11] Public key loaded")
+                      writeln(11)
                     ),
                     close(PubStream)
                 ),
                 rsa_public_encrypt(PublicKey, MyKey, EncryptedKey),
-                writeln("[DEBUG 12] Encrypted symmetric key"),
+                writeln(12),
                 base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
-                writeln("[DEBUG 13] Encrypted key base64 encoded"),
+                writeln(13),
                 format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
-                writeln("[DEBUG 14] Message formatted to send"),
+                writeln(14),
                 write_to_stream(StreamPair, ToSend),
-                writeln("[DEBUG 15] Message sent"),
+                writeln(15),
                 receive_messages(StreamPair)
             ;
             sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
-                writeln("[DEBUG 16] Detected SYMMETRIC_KEY"),
+                writeln(16),
                 sub_string(Input, 14, _, 0, Rest),
+                writeln(17),
                 split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
-                format("[DEBUG 17] Sender: ~w, Key: ~w~n", [Sender_StreamPair, EncryptedKeyBase64]),
+                writeln(18),
                 ( StreamPair = Sender_StreamPair ->
-                      writeln("[DEBUG 18] Ignoring own symmetric key message"),
+                      writeln(19),
                       receive_messages(StreamPair)
                 ;
                     base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
-                    writeln("[DEBUG 19] Encrypted key base64 decoded"),
+                    writeln(20),
                     private_key(PrivKey),
-                    writeln("[DEBUG 20] Private key retrieved"),
+                    writeln(21),
                     setup_call_cleanup(
                         open_string(PrivKey, PrivStream),
                         ( load_private_key(PrivStream, '', PrivateKey),
-                          writeln("[DEBUG 21] Private key loaded")
+                          writeln(22)
                         ),
                         close(PrivStream)
                     ),
                     rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey),
-                    writeln("[DEBUG 22] Symmetric key decrypted"),
+                    writeln(23),
                     assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
-                    format("[DEBUG 23] Received symmetric key from ~w~n", [Sender_StreamPair]),
+                    writeln(24),
                     receive_messages(StreamPair)
                 )
             ;
-            % Caso padrão: mensagem de texto
-            writeln("[DEBUG 24] Received regular message"),
+            writeln(25),
             writeln(Input),
             receive_messages(StreamPair)
         )
-    ).   
+    ).
+
 
 write_to_stream(StreamPair,String) :- 
   % writeln(String),
