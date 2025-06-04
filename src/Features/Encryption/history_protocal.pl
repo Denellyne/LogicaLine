@@ -26,9 +26,7 @@
 :- use_module(library(crypto)).
 :- use_module(library(readutil)).
 % documentaion
-:- doc_server(4000,
-              [ allow('.my.org')
-              ]).
+:- doc_server(4000, [ allow('.my.org') ]).
 :- use_module(library(pldoc/doc_library)).
 :- doc_load_library.
 
@@ -47,8 +45,6 @@ read_file(Stream,[X|L]) :-
     read(Stream,X),
     read_file(Stream,L).
 
-edge(a, b).
-
 % Save 
 save_message(FilePath, Message, Password) :-
     % Convert the password into a hash
@@ -65,6 +61,20 @@ load_chat(FilePath, Password, Message) :-
     append(Tag, CipherText, Codes),
     crypto_password_hash(Password, Hash, [algorithm(sha256)]),
     crypto_data_decrypt(CipherText, 'aes-256-gcm', Hash, Message, [tag(Tag)]).
+
+% access key -> decrypt storage key -> decrypt chat history bin -> load chat history.
+save_message_temp(FilePath, Message, Password) :-
+    %crypto_password_hash(+Password, -Hash, +Options)
+    % Options = [algorithm(alg), cost(int), salt(salt_bytes)]
+    crypto_password_hash(Password, Hash, [algorithm(sha256)]),
+    wirteln(Hash),
+    crypto_data_encrypt(Message, 'aes-256-gcm', Hash, CipherText, [tag(Tag)]),
+    wr
+
+load_chat_temp(FilePath, Password) :-
+    crypto_password_hash(Password, Hash, [algorithm(sha256)]),
+    crypto_data_decrypt(CipherText, 'aes-256-gcm', Hash, Message, [tag(Tag)]).
+
 
 % ?- save_encrypted_message('chat.bin', "hello world", "mypassword").
 % ?- load_encrypted_message('chat.bin', "mypassword", Msg).
