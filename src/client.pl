@@ -41,9 +41,7 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair) :-
   load_keys_from_python(PrivKey, PubKey, SymKey),
-
-  atom_codes(PubKey, PubKeyBase64),
-  phrase(base64(PubKeyBase64), PubKeyCodes),
+  base64_encode_atom(PubKey, PubKeyBase64),
   stream_pair(StreamPair,_,Out),
   format(string(PubKeyMessage), "PUBLIC_KEY:~w", [PubKeyBase64]),
   write_to_stream(StreamPair, PubKeyMessage),
@@ -58,7 +56,6 @@ handle_connection(StreamPair) :-
 receive_messages(StreamPair) :-
     stream_pair(StreamPair,In,_),
     read_line_to_string(In, Input),
-    format("DEBUG: Received: ~w~n", [Input]),
       (  Input == end_of_file -> writeln("Connection dropped"),fail;
          string_length(Input,0) -> receive_messages(StreamPair);
          (   sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
@@ -66,14 +63,11 @@ receive_messages(StreamPair) :-
              sub_string(Input, 15, _, 0, Rest),
              % Rest tem algo tipo "Alias:Base64Key"
              split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-             atom_codes(PubKeyBin, PubKeyBase64),
-             phrase(base64(PubKeyBin), PubKeyCodes),
-             % começo açgures aqui com o ponto 4. e mando para o server, 1 a 1, nao tendo que criar predicado
+             base64_decode_atom(PubKeyBase64, PubKeyBin),
             
              symmetric_key(MyKey),
              rsa_public_encrypt(PubKeyBin, MyKey, EncryptedKey),
-             atom_codes(EncryptedKey, EncryptedKeyBase64),
-             phase(base64(EncryptedKeyBase64), EncryptedKeyCodes),
+             base64_encode_atom(EncryptedKey, EncryptedKeyBase64), 
              format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
              write_to_stream(StreamPair, ToSend),
              receive_messages(StreamPair)
@@ -85,8 +79,7 @@ receive_messages(StreamPair) :-
           ( StreamPair = Sender_StreamPair ->
               receive_messages(StreamPair)
           ; 
-              atom_codes(EncryptedKey, EncryptedKeyBase64),
-              phrase(base64(EncryptedKey), EncryptedKeyCodes),
+              base64_decode_atom(EncryptedKeyBase64, EncryptedKey), 
               private_key(PrivKey),
               rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey),
               assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
@@ -135,13 +128,19 @@ load_keys_from_python(PrivateKeyBin, PublicKeyBin, SymmetricKeyBin) :-
         PrivateBase64 = Dict.get(private_key),
         PublicBase64 = Dict.get(public_key),
         SymmetricBase64 = Dict.get(symmetric_key),
-
-        % Decodificar base64 em binário
-        base64(PrivateKeyBin, PrivateBase64),
-        base64(PublicKeyBin, PublicBase64),
-        base64(SymmetricKeyBin, SymmetricBase64)
-    ; 
+        base64_decode_atom(PrivateBase64, PrivateKeyBin),
+        base64_decode_atom(PublicBase64, PublicKeyBin),
+        base64_decode_atom(SymmetricBase64, SymmetricKeyBin)
+    ;
         format("Python script failed with status: ~w~n", [ExitStatus]),
         fail
     ).
 
+
+base64_encode_atom(Binary, Base64Atom) :-
+    phrase(base64(Binary), Base64Codes),
+    atom_codes(Base64Atom, Base64Codes).
+
+base64_decode_atom(Base64Atom, Binary) :-
+    atom_codes(Base64Atom, Base64Codes),
+    phrase(base64(Binary), Base64Codes).
