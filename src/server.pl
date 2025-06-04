@@ -2,10 +2,14 @@
 :- use_module(library(pcre)).
 
 :- dynamic ips/1.
-:- dynamic connections/1.
+:- dynamic connections/1. % ip
 :- dynamic aliases/2.
 :- dynamic word_map/2.
 :- dynamic message_map/2.
+:- dynamic public_key/2.
+:- dynamic symmetric_keys/3. % (StreamPair receiver, Chave simétrica, StreamPair Sender)
+:- dynamic all_keys_exchanged_notified/0.
+
 
 create_server(Port) :-
       init_map,
@@ -85,7 +89,9 @@ check_user_has_alias(StreamPair,Ip) :-
   ( Aliases == [] -> 
   write_to_stream(Out,"Input the alias you wish to be called by:"),
   catch(read_line_to_string(In, Input),_, fail),
-  assertz(aliases(Ip,Input));true),
+  assertz(aliases(Ip,Input))
+  ;
+  true),
   assertz(ips(Ip)).
 
 broadcast_notification(Message) :-
@@ -98,7 +104,20 @@ keep_alive(StreamPair) :-
   keep_alive(StreamPair).
 
 handle_client(StreamPair,Peer) :-
-  stream_pair(StreamPair,In,_),
+  stream_pair(StreamPair,In,Out),
+  read_line_to_string(In, Input),
+  (     sub_string(Input, 0, 11, _, "PUBLIC_KEY:") ->
+        sub_string(Input, 11, _, 0, PubKeyBase64),
+        base64(PubKeyBin, PubKeyBase64),
+        ip_name(Peer, Ip),
+        assertz(public_key(StreamPair, PubKeyBin)),
+        assertz(public_key(Ip, PubKeyBin)),
+        writeln("Chave pública recebida do cliente"),
+        format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair , PubKeyBase64]), % falta cifrar o ip com sha-256
+        findall(S, (connections(S), S \= StreamPair), OtherClients),
+        send_message_to_client(Notification, OtherClients),
+        handle_client(StreamPair, Peer)
+  ; 
   writeln("Set Stream Timeout"),
   set_stream(StreamPair,timeout(60)),
   writeln("Get Ip"),
@@ -115,7 +134,9 @@ handle_client(StreamPair,Peer) :-
   assertz(connections(StreamPair)),
   string_concat(Alias,": ",Nickname),
   writeln("Handle Client"),
-  handle_service(StreamPair,Nickname).
+  handle_service(StreamPair,Nickname)
+  ).
+  
 
 send_message_to_client(_,[]).
 send_message_to_client(Input,[StreamPair|Connections]) :- 
@@ -141,8 +162,8 @@ format_string(Alias,Input,String, TimeStamp) :-
   string_concat(Alias,Input,String_No_Date),
   string_concat(Time,String_No_Date,String).
 
-broadcast_message(Input,Alias) :-
-  findall(X,connections(X),Connections),
+broadcast_message(Input,Alias, SenderStream) :-
+  findall(X,(connections(X),X \= SenderStream),Connections),
   % delete(Connections,Out,ConnectionsParsed),
   format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
@@ -178,7 +199,20 @@ handle_service(StreamPair,Alias) :-
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
        ;
-       sub_string(Input,0,7, _, "/search") ->
+       sub_string(Input, 0, 13, _, "SYMMETRIC_KEY") ->
+           sub_string(Input, 14, _, 0, Data),
+           split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
+           writeln("Received symmetric key for another client"),
+           assertz(symmetric_keys(ReceiverStreamPair, EncKeyBase64, SenderStreamPair)),
+            (   \+ all_keys_exchanged_notified,
+                all_symmetric_keys_exchanged ->
+                assertz(all_keys_exchanged_notified),
+                broadcast_all_users_ready()
+           ; true
+           ),
+           handle_service(StreamPair, Alias)
+           ;
+           sub_string(Input,0,7, _, "/search") ->
            sub_string(Input,8,_,0, Message),
            search_message(Message, Results),
            send_message_to_client("Search results:", [StreamPair]),
@@ -190,7 +224,7 @@ handle_service(StreamPair,Alias) :-
        handle_service(StreamPair,Alias)
        ;
        string_length(Input,0) -> handle_service(StreamPair,Alias);
-       thread_create(broadcast_message(Input,Alias), _, [ detached(true) ]),
+       thread_create(broadcast_message(Input,Alias, StreamPair), _, [ detached(true) ]),
        handle_service(StreamPair,Alias)
     ).
    
@@ -221,3 +255,28 @@ search_message(Text, Results) :-
     word_map(LowerText, Timestamps),
     findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
 search_message(_, []).
+
+
+all_symmetric_keys_exchanged :-
+    findall((X,Y), (symmetric_keys(X, _, Y), X \= Y), Result),
+    length(Result, M),
+    findall(Ip, aliases(Ip, _), Users),
+    length(Users, N),
+    N1 is (N-1)*N,
+    M =:= N1.
+
+broadcast_all_users_ready() :-
+    findall(Receiver, symmetric_keys(Receiver, _, _), Receivers),
+    sort(Receivers, UniqueReceivers),
+    send_keys_to_all_receivers(UniqueReceivers).
+
+send_keys_to_all_receivers([]).
+send_keys_to_all_receivers([R|Rs]) :-
+    findall((R, EncKey, S), symmetric_keys(R, EncKey, S), Keys),
+    send_keys_list(R,Keys).
+
+send_keys_list(_, []).
+send_keys_list(R, [(R, EncKey, S)|Keys]) :-
+    format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKey]),
+    write_to_stream(Out, Msg),
+    send_keys_list(StreamPair, Keys).
