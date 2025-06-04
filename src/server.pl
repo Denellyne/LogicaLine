@@ -163,7 +163,7 @@ format_string(Alias,Input,String, TimeStamp) :-
   string_concat(Time,String_No_Date,String).
 
 broadcast_message(Input,Alias, SenderStream) :-
-  findall(X,(connections(X),X \= SenderStream),Connections),
+  findall(X,connections(X),Connections),
   % delete(Connections,Out,ConnectionsParsed),
   format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
