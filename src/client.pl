@@ -74,56 +74,80 @@ handle_connection(StreamPair,Alias) :-
   write_to_stream(StreamPair,Alias),  
   send_messages(StreamPair,Alias).
 
-receive_messages(StreamPair) :-
-    stream_pair(StreamPair,In,_),
+ receive_messages(StreamPair) :-
+    writeln('[DEBUG 1] receive_messages entered'),
+    stream_pair(StreamPair, In, _),
+    writeln('[DEBUG 2] stream_pair extracted'),
     read_line_to_string(In, Input),
-      (  Input == end_of_file -> writeln("Connection dropped"),fail;
-         string_length(Input,0) -> receive_messages(StreamPair);
-         (   sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
-             % Extrai a parte depois da tag
-             sub_string(Input, 15, _, 0, Rest),
-             % Rest tem algo tipo "Alias:Base64Key"
-             split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-             base64_decode_atom(PubKeyBase64, PubKeyBin),
-            
-             symmetric_key(MyKey),
-             setup_call_cleanup(
-             open_string(PubKeyBin, PubStream),
-             load_public_key(PubStream, PublicKey),
-             close(PubStream)
-             ),
-             rsa_public_encrypt(PublicKey, MyKey, EncryptedKey, []),
-             base64_encode_atom(EncryptedKey, EncryptedKeyBase64), 
-             format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
-             write_to_stream(StreamPair, ToSend),
-             receive_messages(StreamPair)
-         ;  
-          sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
-          sub_string(Input, 14, _, 0, Rest),
-          split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
-
-          ( StreamPair = Sender_StreamPair ->
-              receive_messages(StreamPair)
-          ; 
-              base64_decode_atom(EncryptedKeyBase64, EncryptedKey), 
-              private_key(PrivKey),
-              setup_call_cleanup(
-              open_string(PrivKey, PrivStream),
-              load_private_key(PrivStream, '', PrivateKey),
-              close(PrivStream)
-              ),
-              rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey, []),
-              assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
-              format("Received symmetric key from ~w~n", [Sender_StreamPair]),
-              receive_messages(StreamPair)
-         )
-         ;
-         % Caso padrão só imprime a mensagem
-         writeln(Input),
-         receive_messages(StreamPair)
-       )
-      ).
-    
+    format("[DEBUG 3] Input received: ~w~n", [Input]),
+    (
+        Input == end_of_file ->
+            writeln("[DEBUG 4] Connection dropped"), fail
+        ;
+        string_length(Input, 0) ->
+            writeln("[DEBUG 5] Empty input, retrying..."), receive_messages(StreamPair)
+        ;
+        (
+            sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
+                writeln("[DEBUG 6] Detected NEW_PUBLIC_KEY"),
+                sub_string(Input, 15, _, 0, Rest),
+                format("[DEBUG 7] Rest: ~w~n", [Rest]),
+                split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
+                format("[DEBUG 8] Sender: ~w, Key: ~w~n", [Sender_StreamPair, PubKeyBase64]),
+                base64_decode_atom(PubKeyBase64, PubKeyBin),
+                writeln("[DEBUG 9] Base64 decoded public key"),
+                symmetric_key(MyKey),
+                writeln("[DEBUG 10] Symmetric key retrieved"),
+                setup_call_cleanup(
+                    open_string(PubKeyBin, PubStream),
+                    ( load_public_key(PubStream, PublicKey),
+                      writeln("[DEBUG 11] Public key loaded")
+                    ),
+                    close(PubStream)
+                ),
+                rsa_public_encrypt(PublicKey, MyKey, EncryptedKey),
+                writeln("[DEBUG 12] Encrypted symmetric key"),
+                base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
+                writeln("[DEBUG 13] Encrypted key base64 encoded"),
+                format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
+                writeln("[DEBUG 14] Message formatted to send"),
+                write_to_stream(StreamPair, ToSend),
+                writeln("[DEBUG 15] Message sent"),
+                receive_messages(StreamPair)
+            ;
+            sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
+                writeln("[DEBUG 16] Detected SYMMETRIC_KEY"),
+                sub_string(Input, 14, _, 0, Rest),
+                split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
+                format("[DEBUG 17] Sender: ~w, Key: ~w~n", [Sender_StreamPair, EncryptedKeyBase64]),
+                ( StreamPair = Sender_StreamPair ->
+                      writeln("[DEBUG 18] Ignoring own symmetric key message"),
+                      receive_messages(StreamPair)
+                ;
+                    base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
+                    writeln("[DEBUG 19] Encrypted key base64 decoded"),
+                    private_key(PrivKey),
+                    writeln("[DEBUG 20] Private key retrieved"),
+                    setup_call_cleanup(
+                        open_string(PrivKey, PrivStream),
+                        ( load_private_key(PrivStream, '', PrivateKey),
+                          writeln("[DEBUG 21] Private key loaded")
+                        ),
+                        close(PrivStream)
+                    ),
+                    rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey),
+                    writeln("[DEBUG 22] Symmetric key decrypted"),
+                    assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
+                    format("[DEBUG 23] Received symmetric key from ~w~n", [Sender_StreamPair]),
+                    receive_messages(StreamPair)
+                )
+            ;
+            % Caso padrão: mensagem de texto
+            writeln("[DEBUG 24] Received regular message"),
+            writeln(Input),
+            receive_messages(StreamPair)
+        )
+    ).   
 
 write_to_stream(StreamPair,String) :- 
   % writeln(String),
