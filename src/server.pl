@@ -165,7 +165,7 @@ format_string(Alias,Input,String, TimeStamp) :-
 
 
 broadcast_message(Input, SenderStream) :-
-  findall(X,connections(X),Connections),
+  findall(X,(connections(X) \= SenderStream),Connections),
   % delete(Connections,Out,ConnectionsParsed),
   % format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(

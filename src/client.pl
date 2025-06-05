@@ -67,6 +67,7 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair,Alias) :-
   load_keys_from_python(PrivKey, PubKey, SymKey),
+  assertz(symmetric_keys(StreamPair, SymKey)),
   converte_termo_para_string(PubKey, PubKeyString),
   base64_encode_atom(PubKeyString, PubKeyBase64),
 
@@ -159,8 +160,13 @@ receive_messages(StreamPair) :-
                 base64_decode_atom(EncryptedBase64, EncryptedData),
                 base64_decode_atom(IVbase64, IV),
                 base64_decode_atom(TagBase64, Tag),
+                writeln(EncryptedData),
+                writeln(IV),
+                writeln(Tag),
+                writeln(SenderStream),
                 writeln(31),
                 symmetric_keys(SenderStream, SymmetricKey),
+                writeln("aqui"),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, [tag(Tag)]),
                 writeln(Decoded),
                 receive_messages(StreamPair)
