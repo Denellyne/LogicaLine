@@ -67,7 +67,9 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair,Alias) :-
   load_keys_from_python(PrivKey, PubKey, SymKey),
-  assertz(symmetric_keys(StreamPair, SymKey)),
+converte_termo_para_string(StreamPair,StreamPairT),
+                sub_string(StreamPairT,9,14,_,Test),
+  assertz(symmetric_keys(Test, SymKey)),
   converte_termo_para_string(PubKey, PubKeyString),
   base64_encode_atom(PubKeyString, PubKeyBase64),
 
@@ -89,6 +91,7 @@ receive_messages(StreamPair) :-
     writeln(2),
     read_line_to_string(In, Input),
     writeln(3),
+    writeln(Input),
     (
         Input == end_of_file ->
             writeln(4), fail
@@ -148,7 +151,8 @@ receive_messages(StreamPair) :-
 
                     rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, [encoding(utf8)]),
                     writeln(23),
-                    assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
+                sub_string(Sender_StreamPair,9,14,_,Test),
+                    assertz(symmetric_keys(Test, SymmetricKey)),
                     writeln(24),
                     receive_messages(StreamPair)
                 )
@@ -161,19 +165,14 @@ receive_messages(StreamPair) :-
                 base64_decode_atom(EncryptedBase64, EncryptedData),
                 base64_decode_atom(IVbase64, IV),
                 base64_decode_atom(TagBase64, Tag),
-                writeln(EncryptedData),
-                writeln(IV),
-                writeln(Tag),
-                writeln(SenderStream),
-                writeln(31),
-                findall(symmetric_keys(X,Y),symmetric_keys(X,Y),Keys),
+                string_codes(Tag, TagBytes),
+                writeln(tag(Tag)),
                 
-                writeln(Keys),
-                writeln(StreamPair),
-                writeln(SenderStream),
-                symmetric_keys(SenderStream, SymmetricKey),
-                writeln("aqui"),
-                crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, [tag(Tag)]),
+                writeln(31),
+
+                symmetric_keys(Test, SymmetricKey),
+                crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, [tag(TagBytes)]),
+                writeln("Mensagem Decifrada:"),
                 writeln(Decoded),
                 receive_messages(StreamPair)
             ;
