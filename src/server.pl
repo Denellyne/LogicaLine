@@ -303,7 +303,8 @@ broadcast_all_users_ready() :-
 send_keys_to_all_receivers([]).
 send_keys_to_all_receivers([R|Rs]) :-
     findall((R, EncKey, S), symmetric_keys(R, EncKey, S), Keys),
-    send_keys_list(R,Keys).
+    send_keys_list(R,Keys),
+    send_keys_to_all_receivers(Rs).
 
 send_keys_list(_, []).
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
