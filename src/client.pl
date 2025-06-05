@@ -155,6 +155,7 @@ receive_messages(StreamPair) :-
             ;
             sub_string(Input, 0, 8, _, "MESSAGE:") ->
                 writeln(30),
+                writeln(Input),
                 sub_string(Input, 8, _, 0, Rest),
                 split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
                 base64_decode_atom(EncryptedBase64, EncryptedData),
