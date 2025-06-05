@@ -200,11 +200,11 @@ send_messages(StreamPair, Alias) :-
 
     ( Str == "/quit" -> writeln("Disconnecting..."), halt;
       string_length(Str, 0) -> write_to_stream(StreamPair, ""), send_messages(StreamPair, Alias);
-      format_string(Alias, Str, String, Timestamp),
+      format_string(Alias, Str, String, _Timestamp),
 
       symmetric_key(SymmetricKey),
       iv(IV),
-      crypto_data_encrypt(Str, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
+      crypto_data_encrypt(String, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
       base64_encode_atom(EncryptedString, EncryptedBase64),
       base64_encode_atom(IV, IVBase64),
       base64_encode_atom(Tag, TagBase64),
