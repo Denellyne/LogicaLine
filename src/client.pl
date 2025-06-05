@@ -195,11 +195,6 @@ load_keys_from_python(Priv, Pub, SymmetricKeyBin) :-
         crypto_n_random_bytes(12, IV),
 
         carregar_chaves(Priv, Pub),
-        rsa_public_encrypt(Pub, "texto secreto", Encrypted, [encoding(utf8)]),
-        rsa_private_decrypt(Priv, Encrypted, Decrypted, [encoding(utf8)]),
-
-        format("Mensagem descriptografada: ~s~n", [Decrypted]),
-
         assertz(private_key(Priv)),
         assertz(public_key(Pub)),
         assertz(symmetric_key(SymmetricKeyBin)),
