@@ -103,18 +103,23 @@ keep_alive(StreamPair) :-
  handle_client(StreamPair, Peer) :-
     stream_pair(StreamPair, In, Out),
     (   read_line_to_string(In, Input),
+        writeln("Received input:"),
+        writeln(Input),
         sub_string(Input, 0, 11, _, "PUBLIC_KEY:") ->
+            writeln("Received public key from client"),
             sub_string(Input, 11, _, 0, PubKeyBase64),
-            base64(PubKeyBin, PubKeyBase64),
+            writeln(PubKeyBase64),
+            base64_decode_atom(PubKeyBase64, PubKeyBin),
             ip_name(Peer, Ip),
             assertz(public_key(StreamPair, PubKeyBin)),
-            assertz(public_key(Ip, PubKeyBin)),
+
             writeln("Chave pública recebida do cliente"),
             format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair, PubKeyBase64]),
-            findall(S, connections(S) , OtherClientsTemp),
-            delete(OtherClientsTemp,SenderStream,OtherClients),
-            send_message_to_client(Notification, OtherClients, StreamPair),
+            findall(S, connections(S), OtherClientsTemp),
+            delete(OtherClientsTemp, StreamPair, OtherClients),
+            send_message_to_client(Notification, OtherClients, []),
             assertz(seen(StreamPair)),
+            enviar_chaves_publicas(StreamPair),
             writeln("Set Stream Timeout"),
             set_stream(StreamPair, timeout(60)),
             writeln("Get Ip"),
@@ -133,17 +138,31 @@ keep_alive(StreamPair) :-
     ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
     ). 
 
+head([H|_],H).
 
-send_message_to_client(_,[], _).
-send_message_to_client(Input,[StreamPair|Connections], SenderStream) :- 
+send_message_to_client(_, [], _) :-
+    writeln('Aqui: 1'),  % Lista de conexões vazia
+    !.
+
+send_message_to_client(Input, [StreamPair | Connections], SenderStream) :- 
+    writeln('Aqui: 2'),  % Início da recursão
     copy_term(Input, String),
+    writeln('Aqui: 3'),  % Após copiar o termo
+
     (
         SenderStream == [] ->
-            ToSend = String
+            ToSend = String,
+            writeln('Aqui: 4')  % SenderStream está vazio
         ;
-            format(string(ToSend), "MESSAGE:~w:~w", [SenderStream, String])
+            head(SenderStream, Stream),
+            format(string(ToSend), "MESSAGE:~w:~w", [Stream, String]),
+            writeln('Aqui: 5')  % SenderStream não está vazio
     ),
+
+    writeln('Aqui: 6 - A enviar mensagem'),  % Antes de enviar
+    writeln(ToSend),
     write_to_stream(StreamPair, ToSend),
+    writeln('Aqui: 7 - Mensagem enviada'),  % Depois de enviar
     send_message_to_client(Input, Connections, SenderStream).
 
 
@@ -166,8 +185,8 @@ format_string(Alias,Input,String, TimeStamp) :-
 
 
 broadcast_message(Input, SenderStream) :-
-  findall(X,connections(X) ,ConnectionsTemp),
-  delete(ConnectionsTemp,SenderStream,Connections),
+  findall(X,connections(X) ,Connections),
+  % delete(Connections,Out,ConnectionsParsed),
   % format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
   open("messageHistory.txt",append,Stream),
@@ -188,7 +207,7 @@ concat_alias_to_string(String,[Alias|_],Str) :-
   string_concat(StrTemp,",",Str).
 
 send_user_list(String,[],StreamPair) :-
-  send_message_to_client(String,[StreamPair]).
+  send_message_to_client(String,[StreamPair], []).
 
 send_user_list(String,[Ip|Ips],StreamPair) :-
   findall(X,aliases(Ip,X),Aliases),
@@ -205,7 +224,7 @@ handle_service(StreamPair) :-
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"),fail
        ;
-       sub_string(Input, 0, 13, _, "SYMMETRIC_KEY") ->
+       sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
            sub_string(Input, 14, _, 0, Data),
            split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
            base64_decode_atom(EncKeyBase64, EncKeyBin),
@@ -213,6 +232,7 @@ handle_service(StreamPair) :-
            assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
             (   \+ all_keys_exchanged_notified,
                 all_symmetric_keys_exchanged ->
+                writeln("consegui"),
                 assertz(all_keys_exchanged_notified),
                 broadcast_all_users_ready()
            ; true
@@ -296,3 +316,15 @@ base64_encode_atom(Binary, Base64Atom) :-
 base64_decode_atom(Base64Atom, Binary) :-
   atom_codes(Base64Atom, Base64Codes),
     base64_encoded(Binary, Base64Codes, []).
+
+
+enviar_chaves_publicas(R) :-
+    findall((StreamPair, PubKey), (public_key(StreamPair, PubKey), StreamPair \= R), Pairs),
+    send_public_keys(Pairs, R).
+
+send_public_keys([], _).
+send_public_keys([(StreamPair, PubKey)|Pairs], R) :-
+    base64_encode_atom(PubKey, PubKeyBase64),
+    format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair, PubKeyBase64]),
+    write_to_stream(R, Notification),
+    send_public_keys(Pairs, R).

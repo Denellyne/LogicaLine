@@ -97,7 +97,7 @@ receive_messages(StreamPair) :-
             writeln(5), receive_messages(StreamPair)
         ;
         (
-            sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY:") ->
+            sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
                 writeln(6),
                 sub_string(Input, 15, _, 0, Rest),
                 writeln(7),
@@ -129,7 +129,7 @@ receive_messages(StreamPair) :-
                 writeln(15),
                 receive_messages(StreamPair)
             ;
-            sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM") ->
+            sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM ") ->
                 writeln(16),
                 sub_string(Input, 19, _, 0, Rest),
                 writeln(17),
