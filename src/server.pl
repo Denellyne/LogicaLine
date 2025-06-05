@@ -207,8 +207,9 @@ handle_service(StreamPair) :-
        sub_string(Input, 0, 13, _, "SYMMETRIC_KEY") ->
            sub_string(Input, 14, _, 0, Data),
            split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
+           base64_decode_atom(EncKeyBase64, EncKeyBin),
            writeln("Received symmetric key for another client"),
-           assertz(symmetric_keys(ReceiverStreamPair, EncKeyBase64, SenderStreamPair)),
+           assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
             (   \+ all_keys_exchanged_notified,
                 all_symmetric_keys_exchanged ->
                 assertz(all_keys_exchanged_notified),
@@ -281,6 +282,16 @@ send_keys_to_all_receivers([R|Rs]) :-
 
 send_keys_list(_, []).
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
-    format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKey]),
-    write_to_stream(Out, Msg),
-    send_keys_list(StreamPair, Keys).
+    base64_encode_atom(EncKey, EncKeyBase64),
+    format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
+    write_to_stream(R, Msg),
+    send_keys_list(R, Keys).
+
+
+base64_encode_atom(Binary, Base64Atom) :-
+     base64_encoded(Binary, Base64Codes, []),
+    atom_codes(Base64Atom, Base64Codes).
+
+base64_decode_atom(Base64Atom, Binary) :-
+  atom_codes(Base64Atom, Base64Codes),
+    base64_encoded(Binary, Base64Codes, []).

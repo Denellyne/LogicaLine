@@ -128,9 +128,9 @@ receive_messages(StreamPair) :-
                 writeln(15),
                 receive_messages(StreamPair)
             ;
-            sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
+            sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM") ->
                 writeln(16),
-                sub_string(Input, 14, _, 0, Rest),
+                sub_string(Input, 19, _, 0, Rest),
                 writeln(17),
                 split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
                 writeln(18),
