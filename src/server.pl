@@ -296,23 +296,39 @@ all_symmetric_keys_exchanged :-
     M =:= N1.
 
 broadcast_all_users_ready :-
+    writeln("DEBUG 1: Iniciando broadcast_all_users_ready"),
     findall(Receiver, symmetric_keys(Receiver, _, _), Receivers),
+    writeln("DEBUG 2: Receivers encontrados"), writeln(Receivers),
     sort(Receivers, UniqueReceivers),
-    send_keys_to_all_receivers(UniqueReceivers).
+    writeln("DEBUG 3: Receivers únicos"), writeln(UniqueReceivers),
+    send_keys_to_all_receivers(UniqueReceivers),
+    writeln("DEBUG 4: Finalizado broadcast_all_users_ready").
 
-send_keys_to_all_receivers([]).
+send_keys_to_all_receivers([]) :-
+    writeln("DEBUG 5: Lista de receivers vazia, fim de send_keys_to_all_receivers").
+
 send_keys_to_all_receivers([R|Rs]) :-
+    format("DEBUG 6: Processando receiver ~w~n", [R]),
     findall((R, EncKey, S), symmetric_keys(R, EncKey, S), Keys),
+    format("DEBUG 7: Chaves encontradas para ~w: ~w~n", [R, Keys]),
     send_keys_list(R, Keys),
+    writeln("DEBUG 8: Continuando com próximo receiver"),
     send_keys_to_all_receivers(Rs).
 
-send_keys_list(_, []).
+send_keys_list(_, []) :-
+    writeln("DEBUG 9: Lista de chaves vazia, fim de send_keys_list").
+
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
+    format("DEBUG 10: Enviando chave para ~w do remetente ~w~n", [R, S]),
     base64_encode_atom(EncKey, EncKeyBase64),
+    format("DEBUG 11: Chave codificada: ~w~n", [EncKeyBase64]),
     format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
+    format("DEBUG 12: Mensagem formatada: ~w~n", [Msg]),
     (   get_stream(R, RealStream) ->
-            write_to_stream(RealStream, Msg)
-      ;   writeln(failed_get_stream(R))
+            writeln("DEBUG 13: Stream encontrado com sucesso"),
+            write_to_stream(RealStream, Msg),
+            writeln("DEBUG 14: Mensagem enviada com sucesso")
+      ;   format("DEBUG 15: Falha ao obter stream de ~w~n", [R])
     ),
     send_keys_list(R, Keys).
 
