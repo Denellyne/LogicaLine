@@ -4,6 +4,10 @@
 :- use_module(library(process)).
 :- use_module(library(http/json)).
 :- use_module(library(base64)).
+:- use_module(library(lists)).
+:- use_module(library(charsio)).       
+:- use_module(library(apply)).         
+:- use_module(library(system)).
 
 
 :- dynamic symmetric_keys/2. % (StreamPair, Chave simétrica)
@@ -106,8 +110,15 @@ receive_messages(StreamPair) :-
                     ),
                     close(PubStream)
                 ),
-                rsa_public_encrypt(PublicKey, MyKey, EncryptedKey),
+                rsa_public_encrypt(PublicKey, MyKey, EncryptedKey, []),
                 writeln(12),
+                writeln("EncryptedKey:"),
+                writeln(EncryptedKey),
+                (   is_list(EncryptedKey) -> writeln("EncryptedKey is a list")
+                ;   atom(EncryptedKey) -> writeln("EncryptedKey is an atom")
+                ;   string(EncryptedKey) -> writeln("EncryptedKey is a string")
+                ;   writeln("EncryptedKey is unknown type")
+                ),
                 base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
                 writeln(13),
                 format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
@@ -137,7 +148,7 @@ receive_messages(StreamPair) :-
                         ),
                         close(PrivStream)
                     ),
-                    rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey),
+                    rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey, []),
                     writeln(23),
                     assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
                     writeln(24),
@@ -208,9 +219,9 @@ load_keys_from_python(PrivateKeyBin, PublicKeyBin, SymmetricKeyBin) :-
 
 
 base64_encode_atom(Binary, Base64Atom) :-
-    phrase(base64(Binary), Base64Codes),
+     base64_encoded(Binary, Base64Codes, []),
     atom_codes(Base64Atom, Base64Codes).
 
 base64_decode_atom(Base64Atom, Binary) :-
-    atom_codes(Base64Atom, Base64Codes),
-    phrase(base64(Binary), Base64Codes).
+  atom_codes(Base64Atom, Base64Codes),
+    base64_encoded(Binary, Base64Codes, []).
