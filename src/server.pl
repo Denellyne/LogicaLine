@@ -309,8 +309,10 @@ send_keys_list(_, []).
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
     base64_encode_atom(EncKey, EncKeyBase64),
     format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
-    get_stream(R, RealStream),
-    write_to_stream(RealStream, Msg),
+    (   get_stream(R, RealStream) ->
+        write_to_stream(RealStream, Msg)
+    ;   writeln(failed_get_stream(R))
+    ),   
     send_keys_list(R, Keys).
 
 
