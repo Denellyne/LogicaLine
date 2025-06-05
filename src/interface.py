@@ -4,18 +4,24 @@ import sys
 import threading
 import platform
 import tkinter
+import time
+from datetime import datetime
+
 
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
 class ChatApp(ctk.CTk):
 
-    def __init__(self, proc):
+    def __init__(self):
         super().__init__()
 
         self.alias = "anon"
+        self.proc = None
 
-        self.proc = proc
+        self.message_widgets = []
+        self.max_messages = 20
+
         self.title("Prolog Chat")
         self.geometry("800x600")
 
@@ -34,12 +40,17 @@ class ChatApp(ctk.CTk):
         self.placeholder_color = "gray"
         self.default_fg_color = "white"
 
-        self.message_entry = ctk.CTkTextbox(self.input_frame, height=35, border_width=1, corner_radius=7, wrap=ctk.WORD)
+        self.message_entry = ctk.CTkTextbox(self.input_frame, height=35, border_width=1, corner_radius=7, wrap=ctk.WORD, undo=True)
         self.message_entry.pack(side="left", padx=(10, 20), pady=10, expand=True, fill="both")
 
         self.min_lines = 1
-        self.max_lines = 8
+        self.max_lines = 10
         self.line_height = 35
+
+        self.message_entry.bind("<Control-z>", self.undo)
+        self.message_entry.bind("<Control-a>", self.select_all)
+        self.message_entry.bind("<Up>", self.undo)
+        self.message_entry.bind("<Down>", self.redo)
 
         self.message_entry.bind("<KeyRelease>", self.adjust_textbox_height)
 
@@ -59,12 +70,51 @@ class ChatApp(ctk.CTk):
 
         self.message_entry.configure(font=my_font)
 
-        self.bind("<FocusIn>", self.select_textbox)
+        self.bind("<Key>", self.on_try_to_write)
+        self.bind("<Control-c>", self.ignore_action)
+        self.bind("<FocusIn>", self.on_select_window)
+        self.bind("<FocusOut>", self.on_deselect_window)
+        self.current_main_window_focus = True
+        self.last_time_sound_played = 0
+        self.notification_cooldown = 1
 
-        self.protocol("WM_DELETE_WINDOW", self.quit)
+        self.protocol("WM_DELETE_WINDOW", self.close)
 
-    def select_textbox(self, event=None):
+    def redo(self, event=None):
+        try:
+            self.message_entry.edit_redo()
+        except tkinter.TclError:
+            pass
+        return "break"
+
+    def undo(self, event=None):
+        try:
+            self.message_entry.edit_undo()
+        except tkinter.TclError:
+            pass
+        return "break"
+
+    def select_all(self, event=None):
+        self.message_entry.tag_add("sel", "1.0", "end-1c")
+        return "break"
+
+    def ignore_action(self, event=None):
+        return None
+
+    def block_action(self, event=None):
+        return "break"
+
+    def on_try_to_write(self, event=None):
+        if event != None and event.keysym in ["Shift_L", "Shift_R", "Control_L", "Control_R"]:
+            return "break"
         self.message_entry.focus_set()
+        return "break"
+
+    def on_select_window(self, event=None):
+        self.current_main_window_focus = True
+
+    def on_deselect_window(self, event=None):
+        self.current_main_window_focus = False
 
     def bind_mousewheel_to_scroll(self):
         canvas = self.chat_scrollable._parent_canvas
@@ -113,81 +163,186 @@ class ChatApp(ctk.CTk):
             self.message_entry.insert("1.0", self.placeholder_text)
             self.message_entry.configure(text_color=self.placeholder_color)
 
-    def quit(self):
-        self.send_message(message="/quit")
-        self.destroy()
-        sys.exit()
-
     def send_message(self, event=None, message=None):
-        if message is None:
+        if message == None:
             message = self.message_entry.get("1.0", "end").strip()
 
         if len(message) > 0 and message[0] == "/":
             message = message.split(" ")
-            if message[0] == "/quit":
-                quit()
+            if message[0] == "/connect":
+                if len(message) == 2:
+                    port = ""
+                    ip = ""
+                    if len(message[1].split(":")) == 1:
+                        port = message[1]
+                        ip = ""
+                    else:
+                        port = message[1].split(":")[1]
+                        ip = message[1].split(":")[0]
+                    self.connect(port, ip)
+                elif len(message) == 3:
+                    self.connect(message[2], message[1])
+            elif message[0] == "/quit" or message[0] == "/disconnect":
+                if self.proc == None:
+                    if message[0] == "/quit":
+                        self.close()
+                else:
+                    try:
+                        self.proc.stdin.write("/quit\n")
+                        self.proc.stdin.flush()
+                    except:
+                        print("Flush Error: send_message() -> self.proc.stdin.flush()")
+                        if message[0] == "/quit":
+                            self.close()
+                    if message[0] == "/quit":
+                        self.close()
             elif message[0] == "/alias":
                 if (len(message) > 1):
                     self.alias = message[1]
-            self.message_entry.delete("1.0", "end")
-            self.add_placeholder()
-            self.adjust_textbox_height()
-        else:
+            elif message[0] == "/notif_cd":
+                if (len(message) > 1):
+                    self.notification_cooldown = float(message[1])
+        elif self.proc != None:
             if message and message != self.placeholder_text:
-                message = self.alias + ": " + message
-                self.append_message(message, sender="user")
-                self.proc.stdin.write(message + "\n")
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                message = timestamp + " " + self.alias + ": " + message
                 try:
+                    self.proc.stdin.write(message + "\n")
                     self.proc.stdin.flush()
                 except:
-                    self.message_entry.delete("1.0", "end")
-                    self.add_placeholder()
-                    self.adjust_textbox_height()
                     print("Flush Error: send_message() -> self.proc.stdin.flush()")
-                self.message_entry.delete("1.0", "end")
-                self.add_placeholder()
-                self.adjust_textbox_height()
+                    self.disconnect()
+        self.message_entry.delete("1.0", "end")
+        self.adjust_textbox_height()
         return "break"
 
     def receive_messages(self):
+        if (self.proc == None):
+            return
         for message in self.proc.stdout:
             message = message.strip()
             if message:
-                self.chat_scrollable.after(0, self.append_message, message, "server")
+                self.chat_scrollable.after(0, self.append_message, message)
 
-    def append_message(self, message, sender="user"):
+    def append_message(self, message):
+        assignements = {"1":"user", "2":"server", "3":"server"}
+        sender = assignements.get(message[0], "")
+        if sender != "":
+            message = message[1:]
+        else:
+            sender = "server"
         bubble_frame = ctk.CTkFrame(self.chat_scrollable, fg_color="transparent")
-        bubble_frame.pack(fill="x", pady=4, padx=10, anchor="w" if sender == "server" else "e")
+        bubble_frame.pack(fill="x", pady=4, padx=10)
+
+        self.message_widgets.append(bubble_frame)
+
+        if len(self.message_widgets) > self.max_messages:
+            oldest = self.message_widgets.pop(0)
+            oldest.destroy()
 
         bubble_color = "#3a3a3a" if sender == "server" else "#295ecf"
         text_color = "white"
 
-        bubble = ctk.CTkLabel(
+        font_family = "Courier"
+        font_size = 12
+
+        chars_per_line = 67
+        logical_lines = message.split("\n")
+        wrapped_lines = sum((len(line) // chars_per_line + 1) for line in logical_lines)
+        num_lines = max(self.min_lines, min(self.max_lines, wrapped_lines))
+        height = 40 + (num_lines - 1) * (self.line_height - 20)
+
+        bubble = ctk.CTkTextbox(
             bubble_frame,
-            text=message,
+            width=500,
+            height=height,
             fg_color=bubble_color,
             text_color=text_color,
             corner_radius=12,
-            padx=10,
-            pady=6,
-            wraplength=500,
-            justify="left"
+            wrap="word",
+            font=(font_family, font_size),
+            activate_scrollbars=False
         )
-        bubble.pack(anchor="w" if sender == "server" else "e")
+        bubble.insert("1.0", message)
+
+        bubble.bind("<Key>", self.on_try_to_write)
+        bubble.bind("<Control-v>", self.on_try_to_write)
+        bubble.bind("<Control-x>", self.on_try_to_write)
+        bubble.bind("<Control-Insert>", self.on_try_to_write)
+        bubble.bind("<Shift-Insert>", self.ignore_action)
+        bubble.bind("<Control-c>", self.ignore_action)
+
+        def bind_scroll_behavior(widget):
+            def on_mousewheel(event):
+                if event.state & 0x0001:
+                    return
+                else:
+                    widget.yview_scroll(-1 * (event.delta // 120), "units")
+                    return "break"
+
+            def on_mousewheel_linux(event):
+                if event.state & 0x0001:
+                    return
+                direction = -1 if event.num == 4 else 1
+                widget.yview_scroll(direction, "units")
+                return "break"
+
+            widget.bind("<Enter>", lambda e: widget.focus_set())
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_mousewheel_linux)
+            widget.bind("<Button-5>", on_mousewheel_linux)
+
+        bind_scroll_behavior(bubble)
+
+        bubble.configure(state="normal")
+
+        if sender == "user":
+            bubble.pack(anchor="e", padx=(100, 0))
+        else:
+            bubble.pack(anchor="w", padx=(0, 100))
 
         self.chat_scrollable.update_idletasks()
         self.chat_scrollable._parent_canvas.yview_moveto(1.0)
-        if (sender == "server"): print("\a", end="", flush=True)
+
+        if sender == "server":
+            now = time.time()
+            if self.current_main_window_focus and now - self.last_time_sound_played >= self.notification_cooldown:
+                threading.Thread(target=self.play_notification_sound).start()
+
+    def play_notification_sound(self):
+        for i in range(3):
+            print("\a", end="", flush=True)
+            time.sleep(0.12)
+        self.last_time_sound_played = time.time()
+
+    def connect(self, port, ip=""):
+        self.disconnect()
+        #proc = subprocess.Popen(["client.exe" if platform.system() == "Windows" else "./client"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        if ip != "":
+            self.proc = subprocess.Popen((f"swipl -q -f client.pl -g setup_client('{ip}',{port}).").split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        else:
+            self.proc = subprocess.Popen((f"swipl -q -f client.pl -g setup_client({port}).").split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+        threading.Thread(target=app.receive_messages, daemon=True).start()
+
+    def disconnect(self):
+        if (self.proc == None): return
+        self.send_message(message="/disconnect")
+        print("disconnecting!")
+        try:
+            self.proc.terminate()
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc = None
+
+    def close(self):
+        if (self.proc != None):
+            self.proc.kill()
+        self.destroy()
+        sys.exit()
 
 
 if __name__ == "__main__":
-    # proc = subprocess.Popen(["client.exe" if platform.system() == "Windows" else "./client"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    proc = subprocess.Popen("swipl -q -f client.pl -g setup_client(5012).".split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-
-    app = ChatApp(proc)
-
-    def start_receive_messages_thread():
-        threading.Thread(target=app.receive_messages, daemon=True).start()
-
-    app.after(100, start_receive_messages_thread)
+    app = ChatApp()
     app.mainloop()
