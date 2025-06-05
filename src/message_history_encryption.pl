@@ -41,20 +41,8 @@ message_txt_file('messageHistory.txt').
 alg_data_decrypt(Alg):- alg_data_encrypt(Alg).
 
 % TODO: 
-% Define FileDoesNotExsist behavior. May be used to reset the chatroom message history.
-% Read/write permission checks may be used in the future.
-% Example: setup storage key's salt for
-% key_file(Path), 
-% (exists_file(Path) -> 
-%   true
-% ; 
-%   crypto_n_random_bytes(16, Salt),
-%   setup_call_cleanup(
-%   open(Path, write, Stream),
-%   format(Stream, '~w\n', [Salt]),
-%   close(Stream))
-% ).
-
+    % Define FileDoesNotExsist behavior. May be used to reset the chatroom message history.
+    % Read/write permission checks may be used in the future.
 
 %% store_password_hash(+Password:string)
 %
@@ -66,11 +54,12 @@ alg_data_decrypt(Alg):- alg_data_encrypt(Alg).
 %  @see crypto_password_hash/3
 %  @see password_hash_file/1
 store_password_hash(Password) :-
+    alg_psw_hash(Alg),
     crypto_password_hash(Password, Hash, [algorithm(Alg)]),
     password_hash_file(Path),
     setup_call_cleanup(
         open(Path, write, Stream),
-        format(Stream, '~w', [Hash]),
+        format(Stream, '~s', [Hash]),
         close(Stream)).
 
 %% verify_password(+Password:string)
@@ -151,21 +140,23 @@ decrypt_message_history(Password) :-
     verify_password(Password),
     
     message_enc_file(InputFile),
-    read_file_to_string(InputFile, FileData),   
+    read_file_to_string(InputFile, FileData, []),   
     
     %FileData = [16 byte Salt]+[16 byte Tag]+[rest is the encrypted chat history]
     sub_atom(FileData, 0, 16, _, Salt), %needed for hkdf derivation of Key and IV
     sub_atom(FileData, 16, 16, _, Tag), %needed for data decrypt
-    sub_atom(FileData, 32, _, _, CipherText),
+    atom_length(FileData, FileL),
+    TextL is FileL - 32,
+    sub_atom(FileData, 32, TextL, _, CipherText),
     
     password_salt_to_key_iv(Password, Salt, Key, IV),
 
     alg_data_decrypt(Algorithm),
     crypto_data_decrypt(CipherText, Algorithm, Key, IV, Plaintext, [tag(Tag)]),
 
+    message_txt_file(OutputFile),
     setup_call_cleanup(
-        message_txt_file(OutFile),
-        open(OutFile, write, Stream),
+        open(OutputFile, write, Stream),
         format(Stream, '~s', [Plaintext]),
         close(Stream)
     ).
@@ -198,8 +189,8 @@ encrypt_message_history(Password) :-
     crypto_data_encrypt(Plaintext, Alg, Key, IV, Ciphertext, [tag(Tag)]),
     
     %   [16 byte Salt][16 byte Tag][Ciphertext]
+    message_enc_file(OutputFile),
     setup_call_cleanup(
-        message_enc_file(OutFile),
         open(OutputFile, write, Stream, [type(binary)]),
         format(Stream, '~s~s~s', [Salt, Tag, Ciphertext]),
         close(Stream)
