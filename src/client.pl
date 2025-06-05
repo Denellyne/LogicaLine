@@ -206,7 +206,7 @@ send_messages(StreamPair,Alias) :-
       base64_encode_atom(EncryptedString, EncryptedBase64),
       base64_encode_atom(IV, IVBase64), 
       base64_encode_atom(Tag, TagBase64),
-      format(string(ToSend), "~w:~w:~w", [EncryptedBase64, IVBase64, TagBase64]),
+      format(string(ToSend), "~w:~w:~w:~w", [StreamPair, EncryptedBase64, IVBase64, TagBase64]),
       write_to_stream(StreamPair,ToSend),
       send_messages(StreamPair,Alias)
     ).
