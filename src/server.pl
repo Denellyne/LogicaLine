@@ -80,6 +80,7 @@ close_connection(StreamPair, Peer) :-
     thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
     get_stream(Sender_StreamPair, StreamPair),
     retractall(public_key(Sender_StreamPair, _)),
+    retractall(symmetric_keys(Sender_StreamPair, _, _)),
     retractall(symmetric_keys(_, _, Sender_StreamPair)),
     retract(aliases(Ip,Alias)),
     retract(ips(Ip)),
