@@ -99,7 +99,7 @@ receive_messages(StreamPair) :-
     writeln(2),
     read_line_to_string(In, Input),
     writeln(3),
-    writeln(Input),
+    % writeln(Input),
     (
         Input == end_of_file ->
             writeln(4), fail
@@ -125,8 +125,8 @@ receive_messages(StreamPair) :-
 
                 rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
                 writeln(12),
-                writeln("EncryptedKey:"),
-                writeln(EncryptedKey),
+                % writeln("EncryptedKey:"),
+                % writeln(EncryptedKey),
                 (   is_list(EncryptedKey) -> writeln("EncryptedKey is a list")
                   ;   atom(EncryptedKey) -> writeln("EncryptedKey is an atom")
                   ;   string(EncryptedKey) -> writeln("EncryptedKey is a string")
@@ -166,7 +166,7 @@ receive_messages(StreamPair) :-
 
                 sub_string(Input, 0, 8, _, "MESSAGE:") ->
                 writeln(30),
-                writeln(Input),
+                % writeln(Input),
                 sub_string(Input, 8, _, 0, Rest),
                 split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
                 base64_decode_atom(EncryptedBase64, EncryptedData),
@@ -176,13 +176,13 @@ receive_messages(StreamPair) :-
                 findall(symmetric_keys(X, Y), symmetric_keys(X, Y), Keys),
 
                 sub_string(SenderStream, 9, 14, _, Test),
-                writeln(Keys),
-                writeln(Test),
+                % writeln(Keys),
+                % writeln(Test),
                 writeln(31),
 
                 symmetric_keys(Test, SymmetricKey),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm", SymmetricKey, IV, Decoded, [tag(TagBytes)]),
-                writeln("Mensagem Decifrada:"),
+                % writeln("Mensagem Decifrada:"),
                 writeln(Decoded),
                 receive_messages(StreamPair)
           ;
