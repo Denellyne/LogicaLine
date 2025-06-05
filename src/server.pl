@@ -10,6 +10,7 @@
 :- dynamic symmetric_keys/3. % (StreamPair receiver, Chave simétrica, StreamPair Sender)
 :- dynamic all_keys_exchanged_notified/0.
 :- dynamic seen/1.
+:- dynamic get_stream/2.
 
 create_server(Port) :-
       % init_map,
@@ -109,6 +110,7 @@ keep_alive(StreamPair) :-
             writeln("Received public key from client"),
             sub_string(Input, 11, _, 0, Rest),
             split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
+            assertz(get_stream(Sender_StreamPair, StreamPair)),
                         writeln(PubKeyBase64),
             base64_decode_atom(PubKeyBase64, PubKeyBin),
             ip_name(Peer, Ip),
@@ -306,7 +308,8 @@ send_keys_list(_, []).
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
     base64_encode_atom(EncKey, EncKeyBase64),
     format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
-    write_to_stream(R, Msg),
+    get_stream(R, RealStream),
+    write_to_stream(RealStream, Msg),
     send_keys_list(R, Keys).
 
 
