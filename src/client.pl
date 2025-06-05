@@ -166,8 +166,11 @@ receive_messages(StreamPair) :-
                 base64_decode_atom(IVbase64, IV),
                 base64_decode_atom(TagBase64, Tag),
                 string_codes(Tag, TagBytes),
-                writeln(tag(Tag)),
+                findall(symmetric_keys(X,Y),symmetric_keys(X,Y),Keys),
                 
+                sub_string(SenderStream,9,14,_,Test),
+                writeln(Keys),
+                writeln(Test),
                 writeln(31),
 
                 symmetric_keys(Test, SymmetricKey),
