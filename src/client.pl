@@ -66,6 +66,7 @@ setup_client(Port) :-
             handle_connection(StreamPair, Alias),
             close_connection(StreamPair))).
 
+
 close_connection(StreamPair) :-
     close(StreamPair, [force(true)]).
 
@@ -362,4 +363,3 @@ search_message(Text, Results) :-
     word_map(LowerText, Timestamps),
     findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
 search_message(_, []).
-

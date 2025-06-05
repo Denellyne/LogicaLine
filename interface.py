@@ -19,9 +19,6 @@ class ChatApp(ctk.CTk):
         self.alias = "anon"
         self.proc = None
 
-        self.message_widgets = []
-        self.max_messages = 20
-
         self.title("Prolog Chat")
         self.geometry("800x600")
 
@@ -44,7 +41,7 @@ class ChatApp(ctk.CTk):
         self.message_entry.pack(side="left", padx=(10, 20), pady=10, expand=True, fill="both")
 
         self.min_lines = 1
-        self.max_lines = 10
+        self.max_lines = 8
         self.line_height = 35
 
         self.message_entry.bind("<Control-z>", self.undo)
@@ -105,10 +102,9 @@ class ChatApp(ctk.CTk):
         return "break"
 
     def on_try_to_write(self, event=None):
-        if event != None and event.keysym in ["Shift_L", "Shift_R", "Control_L", "Control_R"]:
-            return "break"
+        if event.keysym in ["Shift_L", "Shift_R", "Control_L", "Control_R"]:
+            return
         self.message_entry.focus_set()
-        return "break"
 
     def on_select_window(self, event=None):
         self.current_main_window_focus = True
@@ -187,8 +183,8 @@ class ChatApp(ctk.CTk):
                     if message[0] == "/quit":
                         self.close()
                 else:
+                    self.proc.stdin.write("/quit\n")
                     try:
-                        self.proc.stdin.write("/quit\n")
                         self.proc.stdin.flush()
                     except:
                         print("Flush Error: send_message() -> self.proc.stdin.flush()")
@@ -205,9 +201,10 @@ class ChatApp(ctk.CTk):
         elif self.proc != None:
             if message and message != self.placeholder_text:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                message = timestamp + " " + self.alias + ": " + message
+                message = "[" + timestamp + "]" + " " + self.alias + ": " + message
+                self.append_message(message, sender="user")
+                self.proc.stdin.write(message + "\n")
                 try:
-                    self.proc.stdin.write(message + "\n")
                     self.proc.stdin.flush()
                 except:
                     print("Flush Error: send_message() -> self.proc.stdin.flush()")
@@ -217,40 +214,27 @@ class ChatApp(ctk.CTk):
         return "break"
 
     def receive_messages(self):
-        if (self.proc == None):
-            return
         for message in self.proc.stdout:
             message = message.strip()
             if message:
-                self.chat_scrollable.after(0, self.append_message, message)
+                self.chat_scrollable.after(0, self.append_message, message, "server")
 
-    def append_message(self, message):
-        assignements = {"1":"user", "2":"server", "3":"server"}
-        sender = assignements.get(message[0], "")
-        if sender != "":
-            message = message[1:]
-        else:
-            sender = "server"
+
+    def append_message(self, message, sender="user"):
         bubble_frame = ctk.CTkFrame(self.chat_scrollable, fg_color="transparent")
         bubble_frame.pack(fill="x", pady=4, padx=10)
-
-        self.message_widgets.append(bubble_frame)
-
-        if len(self.message_widgets) > self.max_messages:
-            oldest = self.message_widgets.pop(0)
-            oldest.destroy()
 
         bubble_color = "#3a3a3a" if sender == "server" else "#295ecf"
         text_color = "white"
 
         font_family = "Courier"
         font_size = 12
+        chars_per_line = 32
+        line_height = font_size + 3
 
-        chars_per_line = 67
         logical_lines = message.split("\n")
         wrapped_lines = sum((len(line) // chars_per_line + 1) for line in logical_lines)
-        num_lines = max(self.min_lines, min(self.max_lines, wrapped_lines))
-        height = 40 + (num_lines - 1) * (self.line_height - 20)
+        height = wrapped_lines * line_height + 10
 
         bubble = ctk.CTkTextbox(
             bubble_frame,
@@ -271,28 +255,6 @@ class ChatApp(ctk.CTk):
         bubble.bind("<Control-Insert>", self.on_try_to_write)
         bubble.bind("<Shift-Insert>", self.ignore_action)
         bubble.bind("<Control-c>", self.ignore_action)
-
-        def bind_scroll_behavior(widget):
-            def on_mousewheel(event):
-                if event.state & 0x0001:
-                    return
-                else:
-                    widget.yview_scroll(-1 * (event.delta // 120), "units")
-                    return "break"
-
-            def on_mousewheel_linux(event):
-                if event.state & 0x0001:
-                    return
-                direction = -1 if event.num == 4 else 1
-                widget.yview_scroll(direction, "units")
-                return "break"
-
-            widget.bind("<Enter>", lambda e: widget.focus_set())
-            widget.bind("<MouseWheel>", on_mousewheel)
-            widget.bind("<Button-4>", on_mousewheel_linux)
-            widget.bind("<Button-5>", on_mousewheel_linux)
-
-        bind_scroll_behavior(bubble)
 
         bubble.configure(state="normal")
 
@@ -319,7 +281,7 @@ class ChatApp(ctk.CTk):
         self.disconnect()
         #proc = subprocess.Popen(["client.exe" if platform.system() == "Windows" else "./client"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
         if ip != "":
-            self.proc = subprocess.Popen((f"swipl -q -f client.pl -g setup_client('{ip}',{port}).").split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            self.proc = subprocess.Popen((f"swipl -q -f client.pl -g setup_client({ip}, {port}).").split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         else:
             self.proc = subprocess.Popen((f"swipl -q -f client.pl -g setup_client({port}).").split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
