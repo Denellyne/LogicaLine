@@ -138,7 +138,7 @@ keep_alive(StreamPair) :-
     ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
     ). 
 
-head([H|_],H).
+
 
 send_message_to_client(_, [], _) :-
     writeln('Aqui: 1'),  % Lista de conexões vazia
@@ -154,7 +154,7 @@ send_message_to_client(Input, [StreamPair | Connections], SenderStream) :-
             ToSend = String,
             writeln('Aqui: 4')  % SenderStream está vazio
         ;
-            head(SenderStream, Stream),
+            
             format(string(ToSend), "MESSAGE:~w:~w", [Stream, String]),
             writeln('Aqui: 5')  % SenderStream não está vazio
     ),
