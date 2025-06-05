@@ -161,7 +161,6 @@ receive_messages(StreamPair) :-
                 base64_decode_atom(TagBase64, Tag),
                 writeln(31),
                 symmetric_keys(SenderStream, SymmetricKey),
-                iv(IV),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, [tag(Tag)]),
                 writeln(Decoded),
                 receive_messages(StreamPair)
