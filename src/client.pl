@@ -203,7 +203,8 @@ send_messages(StreamPair, Alias) :-
 
       symmetric_key(SymmetricKey),
       iv(IV),
-      crypto_data_encrypt(String, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
+      % Str - Nao formatada , String - Formatada
+      crypto_data_encrypt(Str, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
       base64_encode_atom(EncryptedString, EncryptedBase64),
       base64_encode_atom(IV, IVBase64),
       base64_encode_atom(Tag, TagBase64),
