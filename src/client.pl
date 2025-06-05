@@ -138,10 +138,10 @@ receive_messages(StreamPair) :-
                 writeln(17),
                 split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
                 writeln(18),
-                ( get_stream(Sender_StreamPair, StreamPair) ->
+                
                       writeln(19),
                       receive_messages(StreamPair)
-                ;
+                
                     base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
 
                     writeln(20),
@@ -156,9 +156,7 @@ receive_messages(StreamPair) :-
                     assertz(symmetric_keys(Test, SymmetricKey)),
                     writeln(24),
                     receive_messages(StreamPair)
-                )
-            ;
-            sub_string(Input, 0, 8, _, "MESSAGE:") ->
+                          sub_string(Input, 0, 8, _, "MESSAGE:") ->
                 writeln(30),
                 writeln(Input),
                 sub_string(Input, 8, _, 0, Rest),
