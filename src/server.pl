@@ -78,8 +78,12 @@ close_connection(StreamPair, Peer) :-
     aliases(Ip, Alias),
     string_concat(Alias, " has disconnected from the server", Notification),
     thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
-    retract(connections(StreamPair)),
+    get_stream(Sender_StreamPair,StreamPair),
+    retractall(public_key(Sender_StreamPair, _)),
+    retractall(symmetric_keys(_,_,Sender_StreamPair)),
     retract(ips(Ip)),
+    retract(get_stream(Sender_StreamPair, StreamPair)),
+    retract(connections(StreamPair)),
     close(StreamPair, [force(true)]).
 
 check_user_has_alias(StreamPair, Ip) :-
