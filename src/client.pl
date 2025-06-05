@@ -11,7 +11,7 @@
 
 
 
-:- dynamic symmetric_keys/2.   % (StreamPair, Chave simétrica)))
+:- dynamic symmetric_keys/2.     % (StreamPair, Chave simétrica)))))))
 :- dynamic public_key/1.
 :- dynamic private_key/1.
 :- dynamic symmetric_key/1.
@@ -35,6 +35,16 @@ get_alias(Alias) :-
        (AliasNoFormat == end_of_file -> fail;
         string_concat(AliasNoFormat, ": ", Alias))) ).
 % string_length(AliasNoFormat,0) -> fail;
+
+setup_client(Ip, Port, AliasNoFormat) :-----
+    string_concat(AliasNoFormat, ": ", Alias),
+    setup_call_cleanup(
+        tcp_socket(Socket),
+        tcp_connect(Socket, Ip:Port),
+        setup_call_cleanup(
+            tcp_open_socket(Socket, StreamPair),
+            handle_connection(StreamPair, Alias),
+            close_connection(StreamPair))).
 
 setup_client(Ip, Port) :-
     get_alias(Alias),
