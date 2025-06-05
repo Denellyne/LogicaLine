@@ -64,7 +64,12 @@ class ChatApp(ctk.CTk):
 
         self.message_entry.configure(font=my_font)
 
+        self.bind("<FocusIn>", self.select_textbox)
+
         self.protocol("WM_DELETE_WINDOW", self.quit)
+
+    def select_textbox(self, event=None):
+        self.message_entry.focus_set()
 
     def bind_mousewheel_to_scroll(self):
         canvas = self.chat_scrollable._parent_canvas
@@ -125,10 +130,14 @@ class ChatApp(ctk.CTk):
                 message = self.alias + ": " + message
                 self.append_message(message, sender="user")
                 self.proc.stdin.write(message + "\n")
-                self.proc.stdin.flush()
+                try:
+                    self.proc.stdin.flush()
+                except:
+                    self.message_entry.delete("1.0", "end")
+                    self.add_placeholder()
+                    print("Flush Error: send_message() -> self.proc.stdin.flush()")
                 self.message_entry.delete("1.0", "end")
                 self.add_placeholder()
-
         return "break"
 
     def receive_messages(self):
