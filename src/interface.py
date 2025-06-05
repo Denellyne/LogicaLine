@@ -8,7 +8,6 @@ import tkinter
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
-
 class ChatApp(ctk.CTk):
 
     def __init__(self, proc):
@@ -43,10 +42,6 @@ class ChatApp(ctk.CTk):
         self.line_height = 35
 
         self.message_entry.bind("<KeyRelease>", self.adjust_textbox_height)
-        self.message_entry.bind("<Return>", self.adjust_textbox_height)
-        self.message_entry.bind("<FocusIn>", self.adjust_textbox_height)
-        self.message_entry.bind("<FocusOut>", self.adjust_textbox_height)
-
 
         self.message_entry.insert("1.0", self.placeholder_text)
         self.message_entry.configure(text_color=self.placeholder_color)
@@ -80,11 +75,22 @@ class ChatApp(ctk.CTk):
         def _on_mousewheel_linux(event):
             canvas.yview_scroll(-1 if event.num == 4 else 1, "units")
 
-        if platform.system() == "Windows" or platform.system() == "Darwin":
-            self.chat_scrollable.bind_all("<MouseWheel>", _on_mousewheel)
-        else:
-            self.chat_scrollable.bind_all("<Button-4>", _on_mousewheel_linux)
-            self.chat_scrollable.bind_all("<Button-5>", _on_mousewheel_linux)
+        def bind_wheel_events(event):
+            if platform.system() in ["Windows", "Darwin"]:
+                self.chat_scrollable.bind_all("<MouseWheel>", _on_mousewheel)
+            else:
+                self.chat_scrollable.bind_all("<Button-4>", _on_mousewheel_linux)
+                self.chat_scrollable.bind_all("<Button-5>", _on_mousewheel_linux)
+
+        def unbind_wheel_events(event):
+            if platform.system() in ["Windows", "Darwin"]:
+                self.chat_scrollable.unbind_all("<MouseWheel>")
+            else:
+                self.chat_scrollable.unbind_all("<Button-4>")
+                self.chat_scrollable.unbind_all("<Button-5>")
+
+        self.chat_scrollable.bind("<Enter>", bind_wheel_events)
+        self.chat_scrollable.bind("<Leave>", unbind_wheel_events)
 
     def adjust_textbox_height(self, event=None):
         content = self.message_entry.get("1.0", "end-1c")
@@ -125,6 +131,7 @@ class ChatApp(ctk.CTk):
                     self.alias = message[1]
             self.message_entry.delete("1.0", "end")
             self.add_placeholder()
+            self.adjust_textbox_height()
         else:
             if message and message != self.placeholder_text:
                 message = self.alias + ": " + message
@@ -135,9 +142,11 @@ class ChatApp(ctk.CTk):
                 except:
                     self.message_entry.delete("1.0", "end")
                     self.add_placeholder()
+                    self.adjust_textbox_height()
                     print("Flush Error: send_message() -> self.proc.stdin.flush()")
                 self.message_entry.delete("1.0", "end")
                 self.add_placeholder()
+                self.adjust_textbox_height()
         return "break"
 
     def receive_messages(self):
@@ -168,14 +177,17 @@ class ChatApp(ctk.CTk):
 
         self.chat_scrollable.update_idletasks()
         self.chat_scrollable._parent_canvas.yview_moveto(1.0)
-        print('\a')
+        if (sender == "server"): print("\a", end="", flush=True)
 
 
 if __name__ == "__main__":
     # proc = subprocess.Popen(["client.exe" if platform.system() == "Windows" else "./client"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    proc = subprocess.Popen(["swipl", "client.pl"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    proc = subprocess.Popen("swipl -q -f client.pl -g setup_client(5012).".split(" "), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
     app = ChatApp(proc)
-    threading.Thread(target=app.receive_messages, daemon=True).start()
-    app.mainloop()
 
+    def start_receive_messages_thread():
+        threading.Thread(target=app.receive_messages, daemon=True).start()
+
+    app.after(100, start_receive_messages_thread)
+    app.mainloop()
