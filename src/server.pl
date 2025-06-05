@@ -236,6 +236,7 @@ handle_service(StreamPair) :-
            base64_decode_atom(EncKeyBase64, EncKeyBin),
            writeln("Received symmetric key for another client"),
            assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
+           assertz(get_stream(ReceiverStreamPair, StreamPair)),
             writeln("consegui"),
                
             broadcast_all_users_ready(),
