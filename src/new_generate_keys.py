@@ -1,6 +1,11 @@
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 
+if os.path.exists("private_key.pem"):
+    os.remove("private_key.pem")
+if os.path.exists("public_key.pem"):
+    os.remove("public_key.pem")
+
 # Gerar chave privada RSA
 private_key = rsa.generate_private_key(
     public_exponent=65537,
