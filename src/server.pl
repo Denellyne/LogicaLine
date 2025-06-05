@@ -165,8 +165,8 @@ format_string(Alias,Input,String, TimeStamp) :-
 
 
 broadcast_message(Input, SenderStream) :-
-  findall(X,(connections(X) \= SenderStream),Connections),
-  % delete(Connections,Out,ConnectionsParsed),
+  findall(X,connections(X) ,ConnectionsTemp),
+  delete(ConnectionsTemp,SenderStream,Connections),
   % format_string(Alias,Input,String, Timestamp),
   setup_call_cleanup(
   open("messageHistory.txt",append,Stream),
