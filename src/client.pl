@@ -10,6 +10,7 @@
 :- use_module(library(system)).
 
 
+
 :- dynamic symmetric_keys/2. % (StreamPair, Chave simétrica)
 :- dynamic public_key/1. 
 :- dynamic private_key/1.
@@ -35,25 +36,6 @@ get_alias(Alias) :-
   string_concat(AliasNoFormat,": ",Alias)))).
   % string_length(AliasNoFormat,0) -> fail;
 
-setup_client(Ip,Port,AliasNoFormat) :- 
-  string_concat(AliasNoFormat,": ",Alias),
-  setup_call_cleanup(
-    tcp_socket(Socket),
-    tcp_connect(Socket, Ip:Port),
-  setup_call_cleanup(
-    tcp_open_socket(Socket,StreamPair),
-    handle_connection(StreamPair,Alias),
-    close_connection(StreamPair))).
-
-setup_client(Ip,Port) :- 
-  get_alias(Alias),
-  setup_call_cleanup(
-    tcp_socket(Socket),
-    tcp_connect(Socket, Ip:Port),
-  setup_call_cleanup(
-    tcp_open_socket(Socket,StreamPair),
-    handle_connection(StreamPair,Alias),
-    close_connection(StreamPair))).
 setup_client(Ip,Port) :- 
   get_alias(Alias),
   setup_call_cleanup(
@@ -86,6 +68,7 @@ keep_alive(StreamPair) :-
 handle_connection(StreamPair,Alias) :-
   load_keys_from_python(PrivKey, PubKey, SymKey),
   base64_encode_atom(PubKey, PubKeyBase64),
+
   stream_pair(StreamPair,_,Out),
   format(string(PubKeyMessage), "PUBLIC_KEY:~w", [PubKeyBase64]),
   write_to_stream(StreamPair, PubKeyMessage),
@@ -118,12 +101,16 @@ receive_messages(StreamPair) :-
                 writeln(7),
                 split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
                 writeln(8),
-                base64_decode_atom(PubKeyBase64, PubKeyBin),
+                writeln(Sender_StreamPair),
+                writeln(PubKeyBase64),
+                
+                base64_decode_atom(PubKeyBase64, PublicKey),
+
                 writeln(9),
                 symmetric_key(MyKey),
                 writeln(10),
 
-                rsa_public_encrypt(PubKeyBin, MyKey, EncryptedKey, []),
+                rsa_public_encrypt(PublickKey, MyKey, EncryptedKey, [encoding(utf8)]),
                 writeln(12),
                 writeln("EncryptedKey:"),
                 writeln(EncryptedKey),
@@ -150,12 +137,14 @@ receive_messages(StreamPair) :-
                       writeln(19),
                       receive_messages(StreamPair)
                 ;
-                    base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
+                    base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
                     writeln(20),
+                    
                     private_key(PrivKey),
+
                     writeln(21),
 
-                    rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, []),
+                    rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, [encoding(utf8)]),
                     writeln(23),
                     assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
                     writeln(24),
@@ -167,7 +156,6 @@ receive_messages(StreamPair) :-
             receive_messages(StreamPair)
         )
     ).
-
 
 write_to_stream(StreamPair,String) :- 
   % writeln(String),
@@ -189,40 +177,38 @@ send_messages(StreamPair,Alias) :-
       symmetric_key(SymmetricKey),
       iv(IV),
       crypto_data_encrypt(String, "aes-128-gcm" , SymmetricKey, IV, EncryptedString, []),
-      
+      % base64_encode_atom(EncryptedString, EncryptedBase64), 
       write_to_stream(StreamPair,String),
       send_messages(StreamPair,Alias)
     ).
 
 
-load_keys_from_python(PrivateKeyBin, PublicKeyBin, SymmetricKeyBin) :-
-    process_create(path(python3),
-                   ['generate_keys.py'],
-                   [stdout(pipe(Out)), process(PID)]),
-    read_stream_to_codes(Out, Codes),
+load_keys_from_python(Priv, Pub, SymmetricKeyBin) :-
+
+    process_create(path(python3), ['new_generate_keys.py'], [stdout(pipe(Out)), process(PID)]),
+    read_stream_to_codes(Out, _Codes), 
     close(Out),
     process_wait(PID, ExitStatus),
     ( ExitStatus = exit(0) ->
-        atom_codes(Atom, Codes),
-        catch(
-          atom_json_dict(Atom, Dict, []),
-          E,
-          (print_message(error, E), fail)
-        ),
-        PrivateBase64 = Dict.get(private_key),
-        PublicBase64 = Dict.get(public_key),
-        crypto_n_random_bytes(16, SymmetricKeyBin),  
+
+        crypto_n_random_bytes(16, SymmetricKeyBin),
         crypto_n_random_bytes(12, IV),
-        base64_decode_atom(PrivateBase64, PrivateKeyBin),
-        base64_decode_atom(PublicBase64, PublicKeyBin),
-        assertz(private_key(PrivateKeyBin)),
-        assertz(public_key(PublicKeyBin)),
+
+        carregar_chaves(Priv, Pub),
+        rsa_public_encrypt(Pub, "texto secreto", Encrypted, [encoding(utf8)]),
+        rsa_private_decrypt(Priv, Encrypted, Decrypted, [encoding(utf8)]),
+
+        format("Mensagem descriptografada: ~s~n", [Decrypted]),
+
+        assertz(private_key(Priv)),
+        assertz(public_key(Pub)),
         assertz(symmetric_key(SymmetricKeyBin)),
         assertz(iv(IV))
     ;
-        format("Python script failed with status: ~w~n", [ExitStatus]),
+        format("Erro ao executar o script Python para gerar as chaves.~n"),
         fail
     ).
+    
 
 
 base64_encode_atom(Binary, Base64Atom) :-
@@ -232,3 +218,60 @@ base64_encode_atom(Binary, Base64Atom) :-
 base64_decode_atom(Base64Atom, Binary) :-
   atom_codes(Base64Atom, Base64Codes),
     base64_encoded(Binary, Base64Codes, []).
+
+load_private_key_from_der_bytes(DERBytes, PrivateKeyTerm) :-
+    % Confirma que DERBytes é lista de bytes
+    is_list(DERBytes),
+    forall(member(B, DERBytes), integer(B)),
+
+    % Cria arquivo de memória para escrita
+    open_memory_file(MemFile, write, Out),
+    maplist(put_byte(Out), DERBytes),
+    close(Out),
+
+    % Abre para leitura em modo binário (octet)
+    open_memory_file(MemFile, read, In, [encoding(octet)]),
+
+    % Carrega chave privada do stream
+    catch(
+        load_private_key(In, private_key(PrivateKeyTerm), []),
+        E,
+        ( close(In), free_memory_file(MemFile), throw(E))
+    ),
+
+    close(In),
+    free_memory_file(MemFile).
+
+
+load_public_key_from_der_bytes(DERBytes, PublicKeyTerm) :-
+    % Garante que DERBytes é lista de bytes (inteiros 0..255)
+    is_list(DERBytes),
+    forall(member(B, DERBytes), integer(B)),
+
+    % Cria arquivo de memória para leitura binária
+    open_memory_file(MemFile, write, Out),
+    % Escreve bytes no arquivo de memória
+    maplist(put_byte(Out), DERBytes),
+    close(Out),
+
+    % Agora abre para leitura (modo octet = binário)
+    open_memory_file(MemFile, read, In, [encoding(octet)]),
+    % Carrega chave pública do stream
+    catch(
+        load_public_key(In, public_key(PublicKeyTerm)),
+        E,
+        ( close(In), free_memory_file(MemFile), throw(E))
+    ),
+    close(In),
+    free_memory_file(MemFile).
+
+
+
+carregar_chaves(PrivKey, PubKey) :-
+    open('private_key.pem', read, PrivStream, [type(binary)]),
+    load_private_key(PrivStream, '', PrivKey),
+    close(PrivStream),
+
+    open('public_key.pem', read, PubStream, [type(binary)]),
+    load_public_key(PubStream, PubKey),
+    close(PubStream).
