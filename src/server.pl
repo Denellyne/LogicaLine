@@ -212,12 +212,12 @@ handle_service(StreamPair) :-
            ),
            handle_service(StreamPair)
            ;
-           sub_string(Input,0,7, _, "/search") ->
-           sub_string(Input,8,_,0, Message),
-           search_message(Message, Results),
-           send_message_to_client("Search results:", [StreamPair]),
-           send_message_to_client_list(Results, [StreamPair]),
-          handle_service(StreamPair);     
+               %sub_string(Input,0,7, _, "/search") ->
+               %sub_string(Input,8,_,0, Message),
+               %search_message(Message, Results),
+               %send_message_to_client("Search results:", [StreamPair]),
+               %send_message_to_client_list(Results, [StreamPair]),
+               %handle_service(StreamPair);     
        sub_string(Input,0,6,_,"/users") ->
        send_user_list(StreamPair,"Users:"),
        handle_service(StreamPair)
