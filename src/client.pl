@@ -122,14 +122,8 @@ receive_messages(StreamPair) :-
                 writeln(9),
                 symmetric_key(MyKey),
                 writeln(10),
-                setup_call_cleanup(
-                    open_string(PubKeyBin, PubStream),
-                    ( load_public_key(PubStream, PublicKey),
-                      writeln(11)
-                    ),
-                    close(PubStream)
-                ),
-                rsa_public_encrypt(PublicKey, MyKey, EncryptedKey, []),
+
+                rsa_public_encrypt(PubKeyBin, MyKey, EncryptedKey, []),
                 writeln(12),
                 writeln("EncryptedKey:"),
                 writeln(EncryptedKey),
@@ -160,14 +154,8 @@ receive_messages(StreamPair) :-
                     writeln(20),
                     private_key(PrivKey),
                     writeln(21),
-                    setup_call_cleanup(
-                        open_string(PrivKey, PrivStream),
-                        ( load_private_key(PrivStream, '', PrivateKey),
-                          writeln(22)
-                        ),
-                        close(PrivStream)
-                    ),
-                    rsa_private_decrypt(PrivateKey, EncryptedKey, SymmetricKey, []),
+
+                    rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, []),
                     writeln(23),
                     assertz(symmetric_keys(Sender_StreamPair, SymmetricKey)),
                     writeln(24),
