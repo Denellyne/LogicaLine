@@ -167,7 +167,10 @@ receive_messages(StreamPair) :-
                 writeln(SenderStream),
                 writeln(31),
                 findall(symmetric_keys(X,Y),symmetric_keys(X,Y),Keys),
+                
                 writeln(Keys),
+                writeln(StreamPair),
+                writeln(SenderStream),
                 symmetric_keys(SenderStream, SymmetricKey),
                 writeln("aqui"),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, [tag(Tag)]),
