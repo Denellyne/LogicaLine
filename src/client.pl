@@ -11,7 +11,7 @@
 
 
 
-:- dynamic symmetric_keys/2.  % (StreamPair, Chave simétrica)
+:- dynamic symmetric_keys/2.   % (StreamPair, Chave simétrica)))
 :- dynamic public_key/1.
 :- dynamic private_key/1.
 :- dynamic symmetric_key/1.
@@ -31,9 +31,9 @@ get_alias(Alias) :-
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, AliasNoFormat),
     ( string_length(AliasNoFormat, 0) -> fail;
-          (AliasNoFormat == "end_of_file" -> fail;
-               (AliasNoFormat == end_of_file -> fail;
-                    string_concat(AliasNoFormat, ": ", Alias))) ).
+      (AliasNoFormat == "end_of_file" -> fail;
+       (AliasNoFormat == end_of_file -> fail;
+        string_concat(AliasNoFormat, ": ", Alias))) ).
 % string_length(AliasNoFormat,0) -> fail;
 
 setup_client(Ip, Port) :-
@@ -95,94 +95,94 @@ receive_messages(StreamPair) :-
     (
         Input == end_of_file ->
             writeln(4), fail
-        ;
-            string_length(Input, 0) ->
-                writeln(5), receive_messages(StreamPair)
-            ;
-                (
-                    sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
-                        writeln(6),
-                        sub_string(Input, 15, _, 0, Rest),
-                        writeln(7),
-                        split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-                        writeln(8),
-                        writeln(Sender_StreamPair),
-                        writeln(PubKeyBase64),
+      ;
+        string_length(Input, 0) ->
+            writeln(5), receive_messages(StreamPair)
+      ;
+        (
+            sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
+                writeln(6),
+                sub_string(Input, 15, _, 0, Rest),
+                writeln(7),
+                split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
+                writeln(8),
+                writeln(Sender_StreamPair),
+                writeln(PubKeyBase64),
 
-                        base64_decode_atom(PubKeyBase64, PublicKey),
-                        converte_string_para_termo(PublicKey, PublickKeyTermo),
-                        writeln(9),
-                        symmetric_key(MyKey),
-                        writeln(10),
+                base64_decode_atom(PubKeyBase64, PublicKey),
+                converte_string_para_termo(PublicKey, PublickKeyTermo),
+                writeln(9),
+                symmetric_key(MyKey),
+                writeln(10),
 
-                        rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
-                        writeln(12),
-                        writeln("EncryptedKey:"),
-                        writeln(EncryptedKey),
-                        (   is_list(EncryptedKey) -> writeln("EncryptedKey is a list")
-                            ;   atom(EncryptedKey) -> writeln("EncryptedKey is an atom")
-                                ;   string(EncryptedKey) -> writeln("EncryptedKey is a string")
-                                    ;   writeln("EncryptedKey is unknown type")
-                        ),
-                        base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
-                        writeln(13),
-                        format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
-                        writeln(14),
-                        write_to_stream(StreamPair, ToSend),
-                        writeln(15),
-                        receive_messages(StreamPair)
-                    ;
-                        sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM ") ->
-                            writeln(16),
-                            sub_string(Input, 19, _, 0, Rest),
-                            writeln(17),
-                            split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
-                            writeln(18),
-                            ( StreamPair = Sender_StreamPair ->
-                                  writeln(19),
-                                  receive_messages(StreamPair)
-                              ;
-                                  base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
-                                  writeln(20),
+                rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
+                writeln(12),
+                writeln("EncryptedKey:"),
+                writeln(EncryptedKey),
+                (   is_list(EncryptedKey) -> writeln("EncryptedKey is a list")
+                  ;   atom(EncryptedKey) -> writeln("EncryptedKey is an atom")
+                  ;   string(EncryptedKey) -> writeln("EncryptedKey is a string")
+                  ;   writeln("EncryptedKey is unknown type")
+                ),
+                base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
+                writeln(13),
+                format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
+                writeln(14),
+                write_to_stream(StreamPair, ToSend),
+                writeln(15),
+                receive_messages(StreamPair)
+          ;
+            sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM ") ->
+                writeln(16),
+                sub_string(Input, 19, _, 0, Rest),
+                writeln(17),
+                split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
+                writeln(18),
+                ( StreamPair = Sender_StreamPair ->
+                      writeln(19),
+                      receive_messages(StreamPair)
+                ;
+                  base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
+                  writeln(20),
 
-                                  private_key(PrivKey),
+                  private_key(PrivKey),
 
-                                  writeln(21),
+                  writeln(21),
 
-                                  rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, [encoding(utf8)]),
-                                  writeln(23),
-                                  sub_string(Sender_StreamPair, 9, 14, _, Test),
-                                  assertz(symmetric_keys(Test, SymmetricKey)),
-                                  writeln(24),
-                                  receive_messages(StreamPair)
-                            )
-                        ;
-                            sub_string(Input, 0, 8, _, "MESSAGE:") ->
-                                writeln(30),
-                                writeln(Input),
-                                sub_string(Input, 8, _, 0, Rest),
-                                split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
-                                base64_decode_atom(EncryptedBase64, EncryptedData),
-                                base64_decode_atom(IVbase64, IV),
-                                base64_decode_atom(TagBase64, Tag),
-                                string_codes(Tag, TagBytes),
-                                findall(symmetric_keys(X, Y), symmetric_keys(X, Y), Keys),
-
-                                sub_string(SenderStream, 9, 14, _, Test),
-                                writeln(Keys),
-                                writeln(Test),
-                                writeln(31),
-
-                                symmetric_keys(Test, SymmetricKey),
-                                crypto_data_decrypt(EncryptedData, "aes-128-gcm", SymmetricKey, IV, Decoded, [tag(TagBytes)]),
-                                writeln("Mensagem Decifrada:"),
-                                writeln(Decoded),
-                                receive_messages(StreamPair)
-                            ;
-                                writeln(25),
-                                writeln(Input),
-                                receive_messages(StreamPair)
+                  rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, [encoding(utf8)]),
+                  writeln(23),
+                  sub_string(Sender_StreamPair, 9, 14, _, Test),
+                  assertz(symmetric_keys(Test, SymmetricKey)),
+                  writeln(24),
+                  receive_messages(StreamPair)
                 )
+          ;
+            sub_string(Input, 0, 8, _, "MESSAGE:") ->
+                writeln(30),
+                writeln(Input),
+                sub_string(Input, 8, _, 0, Rest),
+                split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
+                base64_decode_atom(EncryptedBase64, EncryptedData),
+                base64_decode_atom(IVbase64, IV),
+                base64_decode_atom(TagBase64, Tag),
+                string_codes(Tag, TagBytes),
+                findall(symmetric_keys(X, Y), symmetric_keys(X, Y), Keys),
+
+                sub_string(SenderStream, 9, 14, _, Test),
+                writeln(Keys),
+                writeln(Test),
+                writeln(31),
+
+                symmetric_keys(Test, SymmetricKey),
+                crypto_data_decrypt(EncryptedData, "aes-128-gcm", SymmetricKey, IV, Decoded, [tag(TagBytes)]),
+                writeln("Mensagem Decifrada:"),
+                writeln(Decoded),
+                receive_messages(StreamPair)
+          ;
+            writeln(25),
+            writeln(Input),
+            receive_messages(StreamPair)
+        )
     ).
 
 write_to_stream(StreamPair, String) :-
@@ -194,24 +194,24 @@ write_to_stream(StreamPair, String) :-
 send_messages(StreamPair, Alias) :-
     stream_property(StreamPair, error(Err)),
     Err == true -> fail;
-        writeln("Input:"),
-        current_input(Input),
-        read_string(Input, "\n", "\r", _Sep, Str),
+    writeln("Input:"),
+    current_input(Input),
+    read_string(Input, "\n", "\r", _Sep, Str),
 
-        ( Str == "/quit" -> writeln("Disconnecting..."), halt;
-              string_length(Str, 0) -> write_to_stream(StreamPair, ""), send_messages(StreamPair, Alias);
-                  format_string(Alias, Str, String, Timestamp),
+    ( Str == "/quit" -> writeln("Disconnecting..."), halt;
+      string_length(Str, 0) -> write_to_stream(StreamPair, ""), send_messages(StreamPair, Alias);
+      format_string(Alias, Str, String, Timestamp),
 
-                  symmetric_key(SymmetricKey),
-                  iv(IV),
-                  crypto_data_encrypt(Str, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
-                  base64_encode_atom(EncryptedString, EncryptedBase64),
-                  base64_encode_atom(IV, IVBase64),
-                  base64_encode_atom(Tag, TagBase64),
-                  format(string(ToSend), "~w:~w:~w:~w", [StreamPair, EncryptedBase64, IVBase64, TagBase64]),
-                  write_to_stream(StreamPair, ToSend),
-                  send_messages(StreamPair, Alias)
-        ).
+      symmetric_key(SymmetricKey),
+      iv(IV),
+      crypto_data_encrypt(Str, "aes-128-gcm", SymmetricKey, IV, EncryptedString, [tag(Tag)]),
+      base64_encode_atom(EncryptedString, EncryptedBase64),
+      base64_encode_atom(IV, IVBase64),
+      base64_encode_atom(Tag, TagBase64),
+      format(string(ToSend), "~w:~w:~w:~w", [StreamPair, EncryptedBase64, IVBase64, TagBase64]),
+      write_to_stream(StreamPair, ToSend),
+      send_messages(StreamPair, Alias)
+    ).
 
 
 load_keys_from_python(Priv, Pub, SymmetricKeyBin) :-
@@ -230,9 +230,9 @@ load_keys_from_python(Priv, Pub, SymmetricKeyBin) :-
           assertz(public_key(Pub)),
           assertz(symmetric_key(SymmetricKeyBin)),
           assertz(iv(IV))
-      ;
-          format("Erro ao executar o script Python para gerar as chaves.~n"),
-          fail
+    ;
+      format("Erro ao executar o script Python para gerar as chaves.~n"),
+      fail
     ).
 
 

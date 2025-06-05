@@ -2,12 +2,12 @@
 :- use_module(library(pcre)).
 
 :- dynamic ips/1.
-:- dynamic connections/1.  % ip
+:- dynamic connections/1.   % ip
 :- dynamic aliases/2.
 :- dynamic word_map/2.
 :- dynamic message_map/2.
 :- dynamic public_key/2.
-:- dynamic symmetric_keys/3.  % (StreamPair receiver, Chave simétrica, StreamPair Sender)
+:- dynamic symmetric_keys/3.   % (StreamPair receiver, Chave simétrica, StreamPair Sender)
 :- dynamic all_keys_exchanged_notified/0.
 :- dynamic seen/1.
 :- dynamic get_stream/2.
@@ -41,17 +41,17 @@ init_map :-
           open("messageHistory.txt", read, Stream),
           load_messages(Stream),
           close(Stream)
-      ; true
+    ; true
     ).
 
 load_messages(Stream) :-
     read_line_to_string(Stream, Line),
     ( Line == end_of_file -> true
-      ;
-          parse_message(Line, Timestamp, Message),
-          assertz(message_map(Timestamp, Line)),
-          add_message(Message, Timestamp),
-          load_messages(Stream)
+    ;
+      parse_message(Line, Timestamp, Message),
+      assertz(message_map(Timestamp, Line)),
+      add_message(Message, Timestamp),
+      load_messages(Stream)
     ).
 
 parse_message(Line, Timestamp, Message) :-
@@ -139,7 +139,7 @@ handle_client(StreamPair, Peer) :-
             assertz(connections(StreamPair)),
             writeln("Handle Client"),
             handle_service(StreamPair)
-        ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
+      ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
     ).
 
 
@@ -157,12 +157,12 @@ send_message_to_client(Input, [StreamPair  |Connections], SenderStream) :-
         SenderStream == [] ->
             ToSend = String,
             writeln('Aqui: 4')  % SenderStream está vazio
-        ;
+      ;
 
 
-            format(string(ToSend), "MESSAGE:~w", [String]),
+        format(string(ToSend), "MESSAGE:~w", [String]),
 
-            writeln('Aqui: 5')  % SenderStream não está vazio
+        writeln('Aqui: 5')  % SenderStream não está vazio
     ),
 
     writeln('Aqui: 6 - A enviar mensagem'), % Antes de enviar
@@ -229,34 +229,34 @@ handle_service(StreamPair) :-
     stream_pair(StreamPair, In, _),
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"), fail
-       ;
-           sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
-               sub_string(Input, 14, _, 0, Data),
-               split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
-               base64_decode_atom(EncKeyBase64, EncKeyBin),
-               writeln("Received symmetric key for another client"),
-               assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
-               assertz(get_stream(ReceiverStreamPair, StreamPair)),
-               writeln("consegui"),
+     ;
+       sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
+           sub_string(Input, 14, _, 0, Data),
+           split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
+           base64_decode_atom(EncKeyBase64, EncKeyBin),
+           writeln("Received symmetric key for another client"),
+           assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
+           assertz(get_stream(ReceiverStreamPair, StreamPair)),
+           writeln("consegui"),
 
-               broadcast_all_users_ready,
+           broadcast_all_users_ready,
 
-               handle_service(StreamPair)
-           ;
-               %sub_string(Input,0,7, _, "/search") ->
-               %sub_string(Input,8,_,0, Message),
-               %search_message(Message, Results),
-               %send_message_to_client("Search results:", [StreamPair]),
-               %send_message_to_client_list(Results, [StreamPair]),
-               %handle_service(StreamPair);     
-               sub_string(Input, 0, 6, _, "/users") ->
-                   send_user_list(StreamPair, "Users:"),
-                   handle_service(StreamPair)
-               ;
+           handle_service(StreamPair)
+     ;
+       %sub_string(Input,0,7, _, "/search") ->
+       %sub_string(Input,8,_,0, Message),
+       %search_message(Message, Results),
+       %send_message_to_client("Search results:", [StreamPair]),
+       %send_message_to_client_list(Results, [StreamPair]),
+       %handle_service(StreamPair);     
+       sub_string(Input, 0, 6, _, "/users") ->
+           send_user_list(StreamPair, "Users:"),
+           handle_service(StreamPair)
+     ;
 
-                   string_length(Input, 0) -> handle_service(StreamPair);
-                       thread_create(broadcast_message(Input, StreamPair), _, [ detached(true) ]),
-                       handle_service(StreamPair)  ).
+       string_length(Input, 0) -> handle_service(StreamPair);
+       thread_create(broadcast_message(Input, StreamPair), _, [ detached(true) ]),
+       handle_service(StreamPair)  ).
 
 
 add_message(Message, Timestamp) :-
@@ -272,11 +272,11 @@ update_word_map(Timestamp, Word) :-
     string_lower(Word, LowerWord),
     ( word_map(LowerWord, List) ->
           (member(Timestamp, List) -> true
-           ;
-               retract(word_map(LowerWord, List)),
-               assertz(word_map(LowerWord, [Timestamp|List]))
+         ;
+           retract(word_map(LowerWord, List)),
+           assertz(word_map(LowerWord, [Timestamp|List]))
           )
-      ; assertz(word_map(LowerWord, [Timestamp]))
+    ; assertz(word_map(LowerWord, [Timestamp]))
     ).
 
 
@@ -312,7 +312,7 @@ send_keys_list(R, [(R, EncKey, S)|Keys]) :-
     format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
     (   get_stream(R, RealStream) ->
             write_to_stream(RealStream, Msg)
-        ;   writeln(failed_get_stream(R))
+      ;   writeln(failed_get_stream(R))
     ),
     send_keys_list(R, Keys).
 
