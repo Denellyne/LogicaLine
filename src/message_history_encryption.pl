@@ -19,21 +19,20 @@
 %   - SWI-Prolog crypto library documentation
 %     (https://www.swi-prolog.org/pldoc/man?section=crypto)
 %
-%   @author         Fábio E. R. Semedo, (https://github.com/FabioSemedo)
+%   @author         Fábio E. R. Semedo (https://github.com/FabioSemedo)
 %   @version        1.0.0
 %   @see            library(crypto)
-%   @since          2025-06-05
 
 :- use_module(library(crypto)).
 :- use_module(library(readutil)).
 
 % Constants/Facts
-% TODO - Consider moving these Unifying these Facts with a seperate knowledgebase
-% or .properties file for modular file names.
 alg_data_encrypt('aes-256-gcm').
 alg_data_hkdf(sha256).
 alg_psw_hash('pbkdf2-sha512').
 
+% TODO - Consider Unifying these Facts with a seperate knowledgebase
+% or .properties file for modular file names.
 password_hash_file('password_hash.bin').
 
 message_enc_file('messageHistory.enc').
@@ -41,7 +40,7 @@ message_txt_file('messageHistory.txt').
 
 alg_data_decrypt(Alg):- alg_data_encrypt(Alg).
 
-%% TODO: 
+% TODO: 
 % Define FileDoesNotExsist behavior. May be used to reset the chatroom message history.
 % Read/write permission checks may be used in the future.
 % Example: setup storage key's salt for
