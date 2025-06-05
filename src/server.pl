@@ -121,7 +121,7 @@ keep_alive(StreamPair) :-
             delete(OtherClientsTemp, StreamPair, OtherClients),
             send_message_to_client(Notification, OtherClients, []),
             assertz(seen(Sender_StreamPair)),
-            term_string(Term_Stream, Sender_StreamPair).
+            term_string(Term_Stream, Sender_StreamPair),
             enviar_chaves_publicas(Term_Stream),
             writeln("Set Stream Timeout"),
             set_stream(StreamPair, timeout(60)),
