@@ -160,12 +160,11 @@ receive_messages(StreamPair) :-
                 writeln(31),
                 symmetric_keys(SenderStream, SymmetricKey),
                 iv(IV),
-                crypto_data_decrypt(EncryptedData, 'aes-gcm', SymmetricKey, Decoded, [iv(IV)]),
+                crypto_data_decrypt(EncryptedData, "aes-128-gcm" , SymmetricKey, IV, Decoded, []),
                 writeln(Decoded),
                 receive_messages(StreamPair)
             ;
             writeln(25),
-            symmetric_keys(StreamPair, SymmetricKey),
             writeln(Input),
             receive_messages(StreamPair)
         )
