@@ -169,8 +169,6 @@ receive_messages(StreamPair) :-
                 sub_string(SenderStream, 9, 14, _, Test),
                 % writeln(Keys),
                 % writeln(Test),
-                
-
                 symmetric_keys(Test, SymmetricKey),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm", SymmetricKey, IV, Decoded, [tag(TagBytes)]),
                 % writeln("Mensagem Decifrada:"),
