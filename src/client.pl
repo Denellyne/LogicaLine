@@ -19,6 +19,16 @@ get_alias(Alias) :-
   string_concat(AliasNoFormat,": ",Alias)))).
   % string_length(AliasNoFormat,0) -> fail;
 
+setup_client(Ip,Port,AliasNoFormat) :- 
+  string_concat(AliasNoFormat,": ",Alias),
+  setup_call_cleanup(
+    tcp_socket(Socket),
+    tcp_connect(Socket, Ip:Port),
+  setup_call_cleanup(
+    tcp_open_socket(Socket,StreamPair),
+    handle_connection(StreamPair,Alias),
+    close_connection(StreamPair))).
+
 setup_client(Ip,Port) :- 
   get_alias(Alias),
   setup_call_cleanup(
