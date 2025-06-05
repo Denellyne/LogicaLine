@@ -140,7 +140,7 @@ receive_messages(StreamPair) :-
                 writeln(18),
                 
                       writeln(19),
-                      receive_messages(StreamPair)
+                      
                 
                     base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
 
