@@ -93,7 +93,7 @@ check_user_has_alias(StreamPair,Ip) :-
 
 broadcast_notification(Message) :-
   findall(X,connections(X),Connections),
-  send_message_to_client(Message,Connections).
+  send_message_to_client(Message,Connections, []).
 
 keep_alive(StreamPair) :-
   sleep(15),
@@ -135,10 +135,15 @@ keep_alive(StreamPair) :-
 
 send_message_to_client(_,[], _).
 send_message_to_client(Input,[StreamPair|Connections], SenderStream) :- 
-    copy_term(Input,String),
-    format(string(ToSend), "MESSAGE:~w:~w", [SenderStream, String]),
-    write_to_stream(StreamPair,ToSend),
-    send_message_to_client(Input,Connections).
+copy_term(Input, String),
+    (
+        SenderStream == [] ->
+            ToSend = String
+        ;
+            format(string(ToSend), "MESSAGE:~w:~w", [SenderStream, String])
+    ),
+    write_to_stream(StreamPair, ToSend),
+    send_message_to_client(Input, Connections, SenderStream).
 
 
 send_message_to_client_list([], _).
