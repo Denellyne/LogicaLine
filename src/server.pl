@@ -38,9 +38,9 @@ check_streams_errors :-
 
 init_map :-
     ( exists_file("messageHistory.txt") ->
-          open("messageHistory.txt", read, Stream),
-          load_messages(Stream),
-          close(Stream)
+        open("messageHistory.txt", read, Stream),
+        load_messages(Stream),
+        close(Stream)
     ; true
     ).
 
@@ -48,10 +48,10 @@ load_messages(Stream) :-
     read_line_to_string(Stream, Line),
     ( Line == end_of_file -> true
     ;
-      parse_message(Line, Timestamp, Message),
-      assertz(message_map(Timestamp, Line)),
-      add_message(Message, Timestamp),
-      load_messages(Stream)
+        parse_message(Line, Timestamp, Message),
+        assertz(message_map(Timestamp, Line)),
+        add_message(Message, Timestamp),
+        load_messages(Stream)
     ).
 
 parse_message(Line, Timestamp, Message) :-
@@ -67,10 +67,10 @@ dispatch(AcceptFd, Connections) :-
 
 process_client(Socket, Peer) :-
     setup_call_cleanup(
-        tcp_open_socket(Socket, StreamPair),
-        handle_client(StreamPair, Peer),
-        close_connection(StreamPair, Peer)
-    ).
+    tcp_open_socket(Socket, StreamPair),
+    handle_client(StreamPair, Peer),
+    close_connection(StreamPair, Peer)
+).
 
 close_connection(StreamPair, Peer) :-
     write("Closing stream"),
@@ -111,70 +111,67 @@ handle_client(StreamPair, Peer) :-
     stream_pair(StreamPair, In, _Out),
     (   read_line_to_string(In, Input),
         writeln("Received input:"),
-        writeln(Input),
+
         sub_string(Input, 0, 11, _, "PUBLIC_KEY:") ->
-            writeln("Received public key from client"),
-            sub_string(Input, 11, _, 0, Rest),
-            split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-            assertz(get_stream(Sender_StreamPair, StreamPair)),
-            writeln(PubKeyBase64),
-            base64_decode_atom(PubKeyBase64, PubKeyBin),
-            ip_name(Peer, Ip),
+        writeln("Received public key from client"),
+        sub_string(Input, 11, _, 0, Rest),
+        split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
+        assertz(get_stream(Sender_StreamPair, StreamPair)),
+
+        base64_decode_atom(PubKeyBase64, PubKeyBin),
+        ip_name(Peer, Ip),
 
 
-            writeln("Chave pública recebida do cliente"),
-            format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [Sender_StreamPair, PubKeyBase64]),
-            findall(S, connections(S), OtherClientsTemp),
-            delete(OtherClientsTemp, StreamPair, OtherClients),
-            send_message_to_client(Notification, OtherClients, []),
-            % assertz(seen(Sender_StreamPair)),
-            assertz(public_key(Sender_StreamPair, PubKeyBin)),
-            enviar_chaves_publicas(StreamPair),
-            writeln("Set Stream Timeout"),
-            set_stream(StreamPair, timeout(60)),
-            writeln("Get Ip"),
-            ip_name(Peer, Ip),
-            writeln("Check user has Alias"),
-            check_user_has_alias(StreamPair, Ip),
-            aliases(Ip, Alias),
-            writeln("Send User has joined"),
-            string_concat(Alias, " has joined the server", Notification2),
-            thread_create(broadcast_notification(Notification2), _, [detached(true)]),
-            writeln("Start Keep Alive thread"),
-            thread_create(keep_alive(StreamPair), _, [detached(true)]),
-            assertz(connections(StreamPair)),
-            writeln("Handle Client"),
-            handle_service(StreamPair)
-      ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
+
+        format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [Sender_StreamPair, PubKeyBase64]),
+        findall(S, connections(S), OtherClientsTemp),
+        delete(OtherClientsTemp, StreamPair, OtherClients),
+        send_message_to_client(Notification, OtherClients, []),
+        % assertz(seen(Sender_StreamPair)),
+        assertz(public_key(Sender_StreamPair, PubKeyBin)),
+        enviar_chaves_publicas(StreamPair),
+        writeln("Set Stream Timeout"),
+        set_stream(StreamPair, timeout(60)),
+        writeln("Get Ip"),
+        ip_name(Peer, Ip),
+        writeln("Check user has Alias"),
+        check_user_has_alias(StreamPair, Ip),
+        aliases(Ip, Alias),
+        writeln("Send User has joined"),
+        string_concat(Alias, " has joined the server", Notification2),
+        thread_create(broadcast_notification(Notification2), _, [detached(true)]),
+        writeln("Start Keep Alive thread"),
+        thread_create(keep_alive(StreamPair), _, [detached(true)]),
+        assertz(connections(StreamPair)),
+        writeln("Handle Client"),
+        handle_service(StreamPair)
+    ;   writeln("Cliente desconectado antes de enviar chave pública"), fail
     ).
 
 
 
 send_message_to_client(_, [], _) :-
-    writeln('Aqui: 1'), % Lista de conexões vazia
+
     !.
 
 send_message_to_client(Input, [StreamPair  |Connections], SenderStream) :-
-    writeln('Aqui: 2'), % Início da recursão
+
     copy_term(Input, String),
-    writeln('Aqui: 3'), % Após copiar o termo
+
 
     (
         SenderStream == [] ->
-            ToSend = String,
-            writeln('Aqui: 4')  % SenderStream está vazio
-      ;
+        ToSend = String 
+    ;
 
 
-        format(string(ToSend), "MESSAGE:~w", [String]),
-
-        writeln('Aqui: 5')  % SenderStream não está vazio
+        format(string(ToSend), "MESSAGE:~w", [String])
     ),
 
-    writeln('Aqui: 6 - A enviar mensagem'), % Antes de enviar
-    writeln(ToSend),
+
+
     write_to_stream(StreamPair, ToSend),
-    writeln('Aqui: 7 - Mensagem enviada'), % Depois de enviar
+
     send_message_to_client(Input, Connections, SenderStream).
 
 
@@ -201,11 +198,11 @@ broadcast_message(Input, SenderStream) :-
     % delete(Connections,Out,ConnectionsParsed),
     % format_string(Alias,Input,String, Timestamp),
     setup_call_cleanup(
-        open("messageHistory.txt", append, Stream),
-        write_to_stream(Stream, Input),
-        close(Stream)),
+    open("messageHistory.txt", append, Stream),
+    write_to_stream(Stream, Input),
+    close(Stream)),
 
-    writeln(Input),
+
     get_time(TimestampCurr),
     format_time(string(Time), "%a, %d %b %Y %T ", TimestampCurr),
     TimeStamp = Time,
@@ -235,62 +232,62 @@ handle_service(StreamPair) :-
     stream_pair(StreamPair, In, _),
     read_line_to_string(In, Input),
     (  Input == end_of_file -> writeln("Connection dropped"), fail
-     ;
-       sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
-           sub_string(Input, 14, _, 0, Data),
-           split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
-           base64_decode_atom(EncKeyBase64, EncKeyBin),
-           writeln("Received symmetric key for another client"),
-           assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
-           assertz(get_stream(ReceiverStreamPair, StreamPair)),
-           writeln("consegui"),
-
-           broadcast_all_users_ready,
-
-           handle_service(StreamPair)
-     ;
-       %sub_string(Input,0,7, _, "/search") ->
-       %sub_string(Input,8,_,0, Message),
-       %search_message(Message, Results),
-       %send_message_to_client("Search results:", [StreamPair]),
-       %send_message_to_client_list(Results, [StreamPair]),
-       %handle_service(StreamPair);     
-       sub_string(Input, 0, 6, _, "/users") ->
-           send_user_list(StreamPair, "Users:"),
-           handle_service(StreamPair)
-     ;
-
-       string_length(Input, 0) -> handle_service(StreamPair);
-       thread_create(broadcast_message(Input, StreamPair), _, [ detached(true) ]),
-       handle_service(StreamPair)  ).
+    ;
+        sub_string(Input, 0, 14, _, "SYMMETRIC_KEY ") ->
+        sub_string(Input, 14, _, 0, Data),
+        split_string(Data, ":", "", [SenderStreamPair, EncKeyBase64, ReceiverStreamPair]),
+        base64_decode_atom(EncKeyBase64, EncKeyBin),
+        writeln("Received symmetric key for another client"),
+        assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
+        assertz(get_stream(ReceiverStreamPair, StreamPair)),
 
 
-add_message(Message, Timestamp) :-
-    split_string(Message, Words),
-    exclude(==( "" ), Words, FinalWords),
-    maplist(update_word_map(Timestamp), FinalWords).
+        broadcast_all_users_ready,
 
-split_string(String, Words) :-
-    split_string(String, " ", ".,!?:;\"'", Words).
+        handle_service(StreamPair)
+    ;
+        %sub_string(Input,0,7, _, "/search") ->
+        %sub_string(Input,8,_,0, Message),
+        %search_message(Message, Results),
+        %send_message_to_client("Search results:", [StreamPair]),
+        %send_message_to_client_list(Results, [StreamPair]),
+        %handle_service(StreamPair);     
+        sub_string(Input, 0, 6, _, "/users") ->
+        send_user_list(StreamPair, "Users:"),
+        handle_service(StreamPair)
+    ;
+
+        string_length(Input, 0) -> handle_service(StreamPair);
+        thread_create(broadcast_message(Input, StreamPair), _, [ detached(true) ]),
+        handle_service(StreamPair)  ).
 
 
-update_word_map(Timestamp, Word) :-
-    string_lower(Word, LowerWord),
-    ( word_map(LowerWord, List) ->
-          (member(Timestamp, List) -> true
-         ;
-           retract(word_map(LowerWord, List)),
-           assertz(word_map(LowerWord, [Timestamp|List]))
-          )
-    ; assertz(word_map(LowerWord, [Timestamp]))
-    ).
+    add_message(Message, Timestamp) :-
+        split_string(Message, Words),
+        exclude(==( "" ), Words, FinalWords),
+        maplist(update_word_map(Timestamp), FinalWords).
+
+    split_string(String, Words) :-
+        split_string(String, " ", ".,!?:;\"'", Words).
 
 
-search_message(Text, Results) :-
-    string_lower(Text, LowerText),
-    word_map(LowerText, Timestamps),
-    findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
-search_message(_, []).
+    update_word_map(Timestamp, Word) :-
+        string_lower(Word, LowerWord),
+        ( word_map(LowerWord, List) ->
+            (member(Timestamp, List) -> true
+            ;
+                retract(word_map(LowerWord, List)),
+                assertz(word_map(LowerWord, [Timestamp|List]))
+            )
+        ; assertz(word_map(LowerWord, [Timestamp]))
+        ).
+
+
+    search_message(Text, Results) :-
+        string_lower(Text, LowerText),
+        word_map(LowerText, Timestamps),
+        findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
+    search_message(_, []).
 
 
 all_symmetric_keys_exchanged :-
@@ -302,39 +299,36 @@ all_symmetric_keys_exchanged :-
     M =:= N1.
 
 broadcast_all_users_ready :-
-    writeln("DEBUG 1: Iniciando broadcast_all_users_ready"),
-    findall(Receiver, symmetric_keys(Receiver, _, _), Receivers),
-    writeln("DEBUG 2: Receivers encontrados"), writeln(Receivers),
-    sort(Receivers, UniqueReceivers),
-    writeln("DEBUG 3: Receivers únicos"), writeln(UniqueReceivers),
-    send_keys_to_all_receivers(UniqueReceivers),
-    writeln("DEBUG 4: Finalizado broadcast_all_users_ready").
 
-send_keys_to_all_receivers([]) :-
-    writeln("DEBUG 5: Lista de receivers vazia, fim de send_keys_to_all_receivers").
+    findall(Receiver, symmetric_keys(Receiver, _, _), Receivers),
+
+    sort(Receivers, UniqueReceivers),
+
+    send_keys_to_all_receivers(UniqueReceivers).
+
+send_keys_to_all_receivers([]).
 
 send_keys_to_all_receivers([R|Rs]) :-
-    format("DEBUG 6: Processando receiver ~w~n", [R]),
+
     findall((R, EncKey, S), symmetric_keys(R, EncKey, S), Keys),
-    format("DEBUG 7: Chaves encontradas para ~w: ~w~n", [R, Keys]),
+
     send_keys_list(R, Keys),
-    writeln("DEBUG 8: Continuando com próximo receiver"),
+
     send_keys_to_all_receivers(Rs).
 
-send_keys_list(_, []) :-
-    writeln("DEBUG 9: Lista de chaves vazia, fim de send_keys_list").
+send_keys_list(_, []).
 
 send_keys_list(R, [(R, EncKey, S)|Keys]) :-
-    format("DEBUG 10: Enviando chave para ~w do remetente ~w~n", [R, S]),
+
     base64_encode_atom(EncKey, EncKeyBase64),
-    format("DEBUG 11: Chave codificada: ~w~n", [EncKeyBase64]),
+
     format(string(Msg), "SYMMETRIC_KEY_FROM ~w:~w", [S, EncKeyBase64]),
-    format("DEBUG 12: Mensagem formatada: ~w~n", [Msg]),
+
     (   get_stream(R, RealStream) ->
-            writeln("DEBUG 13: Stream encontrado com sucesso"),
-            write_to_stream(RealStream, Msg),
-            writeln("DEBUG 14: Mensagem enviada com sucesso")
-      ;   format("DEBUG 15: Falha ao obter stream de ~w~n", [R])
+
+        write_to_stream(RealStream, Msg)
+
+    ;  true 
     ),
     send_keys_list(R, Keys).
 

@@ -94,78 +94,69 @@ handle_connection(StreamPair, Alias) :-
 
 
 receive_messages(StreamPair) :-
-    writeln(1),
+   
     stream_pair(StreamPair, In, _),
-    writeln(2),
+    
     read_line_to_string(In, Input),
-    writeln(3),
+   
     % writeln(Input),
     (
         Input == end_of_file ->
-            writeln(4), fail
+             fail
       ;
         string_length(Input, 0) ->
-            writeln(5), receive_messages(StreamPair)
+         receive_messages(StreamPair)
       ;
         (
             sub_string(Input, 0, 15, _, "NEW_PUBLIC_KEY ") ->
-                writeln(6),
+                
                 sub_string(Input, 15, _, 0, Rest),
-                writeln(7),
+               
                 split_string(Rest, ":", "", [Sender_StreamPair, PubKeyBase64]),
-                writeln(8),
-                writeln(Sender_StreamPair),
-                writeln(PubKeyBase64),
+                
+       
 
                 base64_decode_atom(PubKeyBase64, PublicKey),
                 converte_string_para_termo(PublicKey, PublickKeyTermo),
-                writeln(9),
+               
                 symmetric_key(MyKey),
-                writeln(10),
-
-                rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
-                writeln(12),
-                % writeln("EncryptedKey:"),
-                % writeln(EncryptedKey),
-                (   is_list(EncryptedKey) -> writeln("EncryptedKey is a list")
-                  ;   atom(EncryptedKey) -> writeln("EncryptedKey is an atom")
-                  ;   string(EncryptedKey) -> writeln("EncryptedKey is a string")
-                  ;   writeln("EncryptedKey is unknown type")
-                ),
+                    rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
+               
+               
                 base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
-                writeln(13),
+                
                 format(string(ToSend), "SYMMETRIC_KEY ~w:~w:~w", [StreamPair, EncryptedKeyBase64, Sender_StreamPair]),
-                writeln(14),
+                
                 write_to_stream(StreamPair, ToSend),
-                writeln(15),
+               
                 receive_messages(StreamPair)
           ;
             sub_string(Input, 0, 19, _, "SYMMETRIC_KEY_FROM ") ->
-                writeln(16),
+                
                 sub_string(Input, 19, _, 0, Rest),
-                writeln(17),
+               
                 split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
-                writeln(18),
+                
                 ( StreamPair = Sender_StreamPair ->
-                      writeln(19),
+                      
                       receive_messages(StreamPair)
                 ;
                   base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
-                  writeln(20),
+                  
 
                   private_key(PrivKey),
 
-                  writeln(21),
+                  
 
                   rsa_private_decrypt(PrivKey, EncryptedKey, SymmetricKey, [encoding(utf8)]),
-                  writeln(23),
+                  
                   sub_string(Sender_StreamPair, 9, 14, _, Test),
                   assertz(symmetric_keys(Test, SymmetricKey)),
-                  writeln(24),
+                  
                   receive_messages(StreamPair));
 
                 sub_string(Input, 0, 8, _, "MESSAGE:") ->
-                writeln(30),
+               
                 % writeln(Input),
                 sub_string(Input, 8, _, 0, Rest),
                 split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
@@ -178,16 +169,19 @@ receive_messages(StreamPair) :-
                 sub_string(SenderStream, 9, 14, _, Test),
                 % writeln(Keys),
                 % writeln(Test),
-                writeln(31),
+                
 
                 symmetric_keys(Test, SymmetricKey),
                 crypto_data_decrypt(EncryptedData, "aes-128-gcm", SymmetricKey, IV, Decoded, [tag(TagBytes)]),
                 % writeln("Mensagem Decifrada:"),
-                writeln(Decoded),
+                with_output_to(string(StreamPairString), write_term(StreamPair, [quoted(false), numbervars(true)])),
+                ( SenderStream == StreamPairString ->
+                    format("1~w~n", [Decoded])
+                ;   format("2~w~n", [Decoded])
+                ), 
                 receive_messages(StreamPair)
           ;
-            writeln(25),
-            writeln(Input),
+            format("3~w~n", [Input]),
             receive_messages(StreamPair)
         )
     ).
@@ -201,7 +195,7 @@ write_to_stream(StreamPair, String) :-
 send_messages(StreamPair, Alias) :-
     stream_property(StreamPair, error(Err)),
     Err == true -> fail;
-    writeln("Input:"),
+
     current_input(Input),
     read_string(Input, "\n", "\r", _Sep, Str),
 
@@ -317,3 +311,56 @@ converte_string_para_termo(String, Term) :-
 converte_termo_para_string(Term, String) :-
     term_to_atom(Term, Atom),
     atom_string(Atom, String).
+
+
+
+init_map :-
+    ( exists_file("messageHistory.txt") ->
+          open("messageHistory.txt", read, Stream),
+          load_messages(Stream),
+          close(Stream)
+    ; true
+    ).
+
+load_messages(Stream) :-
+    read_line_to_string(Stream, Line),
+    ( Line == end_of_file -> true
+    ;
+      parse_message(Line, Timestamp, Message),
+      assertz(message_map(Timestamp, Line)),
+      add_message(Message, Timestamp),
+      load_messages(Stream)
+    ).
+
+parse_message(Line, Timestamp, Message) :-
+    sub_string(Line, 0, 25, _, Timestamp),
+    sub_string(Line, 25, _, 0, Message).
+
+
+add_message(Message, Timestamp) :-
+    split_string(Message, Words),
+    exclude(==( "" ), Words, FinalWords),
+    maplist(update_word_map(Timestamp), FinalWords).
+
+split_string(String, Words) :-
+    split_string(String, " ", ".,!?:;\"'", Words).
+
+
+update_word_map(Timestamp, Word) :-
+    string_lower(Word, LowerWord),
+    ( word_map(LowerWord, List) ->
+          (member(Timestamp, List) -> true
+         ;
+           retract(word_map(LowerWord, List)),
+           assertz(word_map(LowerWord, [Timestamp|List]))
+          )
+    ; assertz(word_map(LowerWord, [Timestamp]))
+    ).
+
+
+search_message(Text, Results) :-
+    string_lower(Text, LowerText),
+    word_map(LowerText, Timestamps),
+    findall(Message, (member(Timestamp, Timestamps), message_map(Timestamp, Message)), Results).
+search_message(_, []).
+
