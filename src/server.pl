@@ -234,13 +234,10 @@ handle_service(StreamPair) :-
            base64_decode_atom(EncKeyBase64, EncKeyBin),
            writeln("Received symmetric key for another client"),
            assertz(symmetric_keys(ReceiverStreamPair, EncKeyBin, SenderStreamPair)),
-            (   \+ all_keys_exchanged_notified,
-                all_symmetric_keys_exchanged ->
-                writeln("consegui"),
-                assertz(all_keys_exchanged_notified),
-                broadcast_all_users_ready()
-           ; true
-           ),
+            writeln("consegui"),
+               
+            broadcast_all_users_ready(),
+          
            handle_service(StreamPair)
            ;
                %sub_string(Input,0,7, _, "/search") ->
