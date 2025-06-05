@@ -138,11 +138,12 @@ receive_messages(StreamPair) :-
                 writeln(17),
                 split_string(Rest, ":", "", [Sender_StreamPair, EncryptedKeyBase64]),
                 writeln(18),
-                ( StreamPair = Sender_StreamPair ->
+                ( get_stream(Sender_StreamPair, StreamPair) ->
                       writeln(19),
                       receive_messages(StreamPair)
                 ;
-                    base64_encode_atom(EncryptedKey, EncryptedKeyBase64),
+                    base64_decode_atom(EncryptedKeyBase64, EncryptedKey),
+
                     writeln(20),
                     
                     private_key(PrivKey),
