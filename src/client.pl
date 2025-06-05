@@ -11,7 +11,7 @@
 
 
 
-:- dynamic symmetric_keys/2.     % (StreamPair, Chave simétrica)))))))
+:- dynamic symmetric_keys/2.      % (StreamPair, Chave simétrica)
 :- dynamic public_key/1.
 :- dynamic private_key/1.
 :- dynamic symmetric_key/1.
@@ -76,18 +76,16 @@ keep_alive(StreamPair) :-
 
 
 handle_connection(StreamPair, Alias) :-
-    load_keys_from_python(PrivKey, PubKey, SymKey),
+    load_keys_from_python(_PrivKey, PubKey, SymKey),
     converte_termo_para_string(StreamPair, StreamPairT),
     sub_string(StreamPairT, 9, 14, _, Test),
     assertz(symmetric_keys(Test, SymKey)),
     converte_termo_para_string(PubKey, PubKeyString),
     base64_encode_atom(PubKeyString, PubKeyBase64),
 
-    stream_pair(StreamPair, _, Out),
     format(string(PubKeyMessage), "PUBLIC_KEY:~w:~w", [StreamPair, PubKeyBase64]),
     write_to_stream(StreamPair, PubKeyMessage),
 
-    stream_pair(StreamPair, In, _),
     thread_create(receive_messages(StreamPair), _, [detached(true)]),
     thread_create(keep_alive(StreamPair), _, [detached(true)]),
     set_stream(StreamPair, timeout(60)),
@@ -164,10 +162,9 @@ receive_messages(StreamPair) :-
                   sub_string(Sender_StreamPair, 9, 14, _, Test),
                   assertz(symmetric_keys(Test, SymmetricKey)),
                   writeln(24),
-                  receive_messages(StreamPair)
-                )
-          ;
-            sub_string(Input, 0, 8, _, "MESSAGE:") ->
+                  receive_messages(StreamPair));
+
+                sub_string(Input, 0, 8, _, "MESSAGE:") ->
                 writeln(30),
                 writeln(Input),
                 sub_string(Input, 8, _, 0, Rest),

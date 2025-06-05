@@ -2,14 +2,14 @@
 :- use_module(library(pcre)).
 
 :- dynamic ips/1.
-:- dynamic connections/1.   % ip
+:- dynamic connections/1.    % ip
 :- dynamic aliases/2.
 :- dynamic word_map/2.
 :- dynamic message_map/2.
 :- dynamic public_key/2.
-:- dynamic symmetric_keys/3.   % (StreamPair receiver, Chave simétrica, StreamPair Sender)
-:- dynamic all_keys_exchanged_notified/0.
-:- dynamic seen/1.
+:- dynamic symmetric_keys/3.    % (StreamPair receiver, Chave simétrica, StreamPair Sender)
+% :- dynamic all_keys_exchanged_notified/0.
+% :- dynamic seen/1.
 :- dynamic get_stream/2.
 
 create_server(Port) :-
@@ -78,9 +78,10 @@ close_connection(StreamPair, Peer) :-
     aliases(Ip, Alias),
     string_concat(Alias, " has disconnected from the server", Notification),
     thread_create(broadcast_notification(Notification), _, [ detached(true) ]),
-    get_stream(Sender_StreamPair,StreamPair),
+    get_stream(Sender_StreamPair, StreamPair),
     retractall(public_key(Sender_StreamPair, _)),
-    retractall(symmetric_keys(_,_,Sender_StreamPair)),
+    retractall(symmetric_keys(_, _, Sender_StreamPair)),
+    retract(aliases(Ip,Alias)),
     retract(ips(Ip)),
     retract(get_stream(Sender_StreamPair, StreamPair)),
     retract(connections(StreamPair)),
@@ -106,7 +107,7 @@ keep_alive(StreamPair) :-
     keep_alive(StreamPair).
 
 handle_client(StreamPair, Peer) :-
-    stream_pair(StreamPair, In, Out),
+    stream_pair(StreamPair, In, _Out),
     (   read_line_to_string(In, Input),
         writeln("Received input:"),
         writeln(Input),
@@ -125,7 +126,7 @@ handle_client(StreamPair, Peer) :-
             findall(S, connections(S), OtherClientsTemp),
             delete(OtherClientsTemp, StreamPair, OtherClients),
             send_message_to_client(Notification, OtherClients, []),
-            assertz(seen(Sender_StreamPair)),
+            % assertz(seen(Sender_StreamPair)),
             assertz(public_key(Sender_StreamPair, PubKeyBin)),
             enviar_chaves_publicas(StreamPair),
             writeln("Set Stream Timeout"),
