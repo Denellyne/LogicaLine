@@ -155,11 +155,9 @@ send_message_to_client(Input, [StreamPair | Connections], SenderStream) :-
             writeln('Aqui: 4')  % SenderStream está vazio
         ;
             
-<<<<<<< HEAD
+
             format(string(ToSend), "MESSAGE:~w", [String]),
-=======
-            format(string(ToSend), "MESSAGE:~w:~w", [SenderStream, String]),
->>>>>>> 13a9ff25db800f1270ac2b7a36f4b64d2b0b0ed6
+
             writeln('Aqui: 5')  % SenderStream não está vazio
     ),
 
