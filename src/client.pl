@@ -72,7 +72,7 @@ handle_connection(StreamPair,Alias) :-
   base64_encode_atom(PubKeyString, PubKeyBase64),
 
   stream_pair(StreamPair,_,Out),
-  format(string(PubKeyMessage), "PUBLIC_KEY:~w", [PubKeyBase64]),
+  format(string(PubKeyMessage), "PUBLIC_KEY:~w:~w", [StreamPair,PubKeyBase64]),
   write_to_stream(StreamPair, PubKeyMessage),
 
   stream_pair(StreamPair,In,_),
