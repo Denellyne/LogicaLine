@@ -112,7 +112,7 @@ keep_alive(StreamPair) :-
             writeln("Chave pública recebida do cliente"),
             format(string(Notification), "NEW_PUBLIC_KEY ~w:~w", [StreamPair, PubKeyBase64]),
             findall(S, (connections(S), S \= StreamPair), OtherClients),
-            send_message_to_client(Notification, OtherClients),
+            send_message_to_client(Notification, OtherClients, StreamPair),
             assertz(seen(StreamPair)),
             writeln("Set Stream Timeout"),
             set_stream(StreamPair, timeout(60)),
