@@ -135,7 +135,7 @@ keep_alive(StreamPair) :-
 
 send_message_to_client(_,[], _).
 send_message_to_client(Input,[StreamPair|Connections], SenderStream) :- 
-copy_term(Input, String),
+    copy_term(Input, String),
     (
         SenderStream == [] ->
             ToSend = String
@@ -177,7 +177,7 @@ broadcast_message(Input, SenderStream) :-
   get_time(TimestampCurr),
   format_time(string(Time),"%a, %d %b %Y %T ",TimestampCurr),
   TimeStamp = Time,
-  send_message_to_client(Input,Connections SenderStream),
+  send_message_to_client(Input,Connections, SenderStream),
   add_message(Input, Timestamp),
   assertz(message_map(Timestamp, String)).
   
