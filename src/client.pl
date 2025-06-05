@@ -67,7 +67,8 @@ keep_alive(StreamPair) :-
 
 handle_connection(StreamPair,Alias) :-
   load_keys_from_python(PrivKey, PubKey, SymKey),
-  base64_encode_atom(PubKey, PubKeyBase64),
+  converte_termo_para_string(PubKey, PubKeyString),
+  base64_encode_atom(PubKeyString, PubKeyBase64),
 
   stream_pair(StreamPair,_,Out),
   format(string(PubKeyMessage), "PUBLIC_KEY:~w", [PubKeyBase64]),
@@ -105,12 +106,12 @@ receive_messages(StreamPair) :-
                 writeln(PubKeyBase64),
                 
                 base64_decode_atom(PubKeyBase64, PublicKey),
-
+                converte_string_para_termo(PublicKey, PublickKeyTermo),
                 writeln(9),
                 symmetric_key(MyKey),
                 writeln(10),
 
-                rsa_public_encrypt(PublickKey, MyKey, EncryptedKey, [encoding(utf8)]),
+                rsa_public_encrypt(PublickKeyTermo, MyKey, EncryptedKey, [encoding(utf8)]),
                 writeln(12),
                 writeln("EncryptedKey:"),
                 writeln(EncryptedKey),
@@ -270,3 +271,12 @@ carregar_chaves(PrivKey, PubKey) :-
     open('public_key.pem', read, PubStream, [type(binary)]),
     load_public_key(PubStream, PubKey),
     close(PubStream).
+
+
+converte_string_para_termo(String, Term) :-
+    atom_string(Atom, String),
+    atom_to_term(Atom, Term, _).
+
+converte_termo_para_string(Term, String) :-
+    term_to_atom(Term, Atom),
+    atom_string(Atom, String).
