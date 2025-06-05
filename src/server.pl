@@ -133,10 +133,11 @@ keep_alive(StreamPair) :-
     ). 
 
 
-send_message_to_client(_,[]).
-send_message_to_client(Input,[StreamPair|Connections]) :- 
+send_message_to_client(_,[], _).
+send_message_to_client(Input,[StreamPair|Connections], SenderStream) :- 
     copy_term(Input,String),
-    write_to_stream(StreamPair,String),
+    format(string(ToSend), "MESSAGE:~w:~w", [SenderStream, String]),
+    write_to_stream(StreamPair,ToSend),
     send_message_to_client(Input,Connections).
 
 
@@ -171,7 +172,7 @@ broadcast_message(Input, SenderStream) :-
   get_time(TimestampCurr),
   format_time(string(Time),"%a, %d %b %Y %T ",TimestampCurr),
   TimeStamp = Time,
-  send_message_to_client(Input,Connections),
+  send_message_to_client(Input,Connections SenderStream),
   add_message(Input, Timestamp),
   assertz(message_map(Timestamp, String)).
   

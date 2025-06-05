@@ -152,7 +152,20 @@ receive_messages(StreamPair) :-
                     receive_messages(StreamPair)
                 )
             ;
+            sub_string(Input, 0, 8, _, "MESSAGE:") ->
+                writeln(30),
+                sub_string(Input, 8, _, 0, Rest),
+                split_string(Rest, ":", "", [SenderStream, EncryptedBase64]),
+                base64_decode_atom(EncryptedBase64, EncryptedData),
+                writeln(31),
+                symmetric_keys(SenderStream, SymmetricKey),
+                iv(IV),
+                crypto_data_decrypt(EncryptedData, 'aes-gcm', SymmetricKey, Decoded, [iv(IV)]),
+                writeln(Decoded),
+                receive_messages(StreamPair)
+            ;
             writeln(25),
+            symmetric_keys(StreamPair, SymmetricKey),
             writeln(Input),
             receive_messages(StreamPair)
         )
@@ -177,9 +190,9 @@ send_messages(StreamPair,Alias) :-
       
       symmetric_key(SymmetricKey),
       iv(IV),
-      crypto_data_encrypt(String, "aes-128-gcm" , SymmetricKey, IV, EncryptedString, []),
-      % base64_encode_atom(EncryptedString, EncryptedBase64), 
-      write_to_stream(StreamPair,String),
+      crypto_data_encrypt(Str, "aes-128-gcm" , SymmetricKey, IV, EncryptedString, []),
+      base64_encode_atom(EncryptedString, EncryptedBase64), 
+      write_to_stream(StreamPair,EncryptedBase64),
       send_messages(StreamPair,Alias)
     ).
 
