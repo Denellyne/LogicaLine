@@ -102,7 +102,7 @@ class ChatApp(ctk.CTk):
         return "break"
 
     def on_try_to_write(self, event=None):
-        if event.keysym in ["Shift_L", "Shift_R", "Control_L", "Control_R"]:
+        if event != None and event.keysym in ["Shift_L", "Shift_R", "Control_L", "Control_R"]:
             return "break"
         self.message_entry.focus_set()
         return "break"
@@ -184,8 +184,8 @@ class ChatApp(ctk.CTk):
                     if message[0] == "/quit":
                         self.close()
                 else:
-                    self.proc.stdin.write("/quit\n")
                     try:
+                        self.proc.stdin.write("/quit\n")
                         self.proc.stdin.flush()
                     except:
                         print("Flush Error: send_message() -> self.proc.stdin.flush()")
@@ -203,8 +203,8 @@ class ChatApp(ctk.CTk):
             if message and message != self.placeholder_text:
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 message = timestamp + " " + self.alias + ": " + message
-                self.proc.stdin.write(message + "\n")
                 try:
+                    self.proc.stdin.write(message + "\n")
                     self.proc.stdin.flush()
                 except:
                     print("Flush Error: send_message() -> self.proc.stdin.flush()")
@@ -214,6 +214,8 @@ class ChatApp(ctk.CTk):
         return "break"
 
     def receive_messages(self):
+        if (self.proc == None):
+            return
         for message in self.proc.stdout:
             message = message.strip()
             if message:
@@ -221,8 +223,11 @@ class ChatApp(ctk.CTk):
 
     def append_message(self, message):
         assignements = {"1":"user", "2":"server", "3":"server"}
-        sender = assignements.get(message[0], "server")
-        message = message[1:]
+        sender = assignements.get(message[0], "")
+        if sender != "":
+            message = message[1:]
+        else:
+            sender = "server"
         bubble_frame = ctk.CTkFrame(self.chat_scrollable, fg_color="transparent")
         bubble_frame.pack(fill="x", pady=4, padx=10)
 
