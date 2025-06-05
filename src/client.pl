@@ -36,7 +36,7 @@ get_alias(Alias) :-
         string_concat(AliasNoFormat, ": ", Alias))) ).
 % string_length(AliasNoFormat,0) -> fail;
 
-setup_client(Ip, Port, AliasNoFormat) :-----
+setup_client(Ip, Port, AliasNoFormat) :-
     string_concat(AliasNoFormat, ": ", Alias),
     setup_call_cleanup(
         tcp_socket(Socket),
