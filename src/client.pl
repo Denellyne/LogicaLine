@@ -155,8 +155,10 @@ receive_messages(StreamPair) :-
             sub_string(Input, 0, 8, _, "MESSAGE:") ->
                 writeln(30),
                 sub_string(Input, 8, _, 0, Rest),
-                split_string(Rest, ":", "", [SenderStream, EncryptedBase64]),
+                split_string(Rest, ":", "", [SenderStream, EncryptedBase64, IVbase64, TagBase64]),
                 base64_decode_atom(EncryptedBase64, EncryptedData),
+                base64_decode_atom(IVbase64, IV),
+                base64_decode_atom(TagBase64, Tag),
                 writeln(31),
                 symmetric_keys(SenderStream, SymmetricKey),
                 iv(IV),
@@ -194,7 +196,7 @@ send_messages(StreamPair,Alias) :-
       base64_encode_atom(IV, IVBase64), 
       base64_encode_atom(Tag, TagBase64),
       format(string(ToSend), "~w:~w:~w", [EncryptedBase64, IVBase64, TagBase64]),
-      write_to_stream(StreamPair,toSend),
+      write_to_stream(StreamPair,ToSend),
       send_messages(StreamPair,Alias)
     ).
 
