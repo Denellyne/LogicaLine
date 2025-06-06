@@ -5,6 +5,7 @@ import threading
 import platform
 import tkinter
 import time
+import random
 from datetime import datetime
 
 
@@ -16,13 +17,16 @@ class ChatApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
+        self.getting_internal_alias = False
+        self.session_id = -1
+
         self.alias = "anon"
         self.proc = None
 
         self.message_widgets = []
-        self.max_messages = 20
+        self.max_messages = 100
 
-        self.title("Prolog Chat")
+        self.title("Logica Line")
         self.geometry("800x600")
 
         self.chat_frame = ctk.CTkFrame(self, corner_radius=10)
@@ -44,7 +48,7 @@ class ChatApp(ctk.CTk):
         self.message_entry.pack(side="left", padx=(10, 20), pady=10, expand=True, fill="both")
 
         self.min_lines = 1
-        self.max_lines = 10
+        self.max_lines = 30
         self.line_height = 35
 
         self.message_entry.bind("<Control-z>", self.undo)
@@ -202,10 +206,16 @@ class ChatApp(ctk.CTk):
             elif message[0] == "/notif_cd":
                 if (len(message) > 1):
                     self.notification_cooldown = float(message[1])
+            elif message[0] == "/help":
+                self.append_message("Available Commands:\n/connect <ip>:<port>\n/connect <ip> <port>\n/connect <port>\n/disconnect\n/alias <text>\n/notif_cd <number_of_seconds>\n/quit\n/help\nInfo:\n/connect attemps to establish a connection to a server with a given ip+port or a given port, depending on if the server is local.\n/disconnect severs the connection you may have to a server.\n/alias changes the user name, default is 'anon'.\n/notif_cd changes the cooldown for the notification sound, which is in seconds and default is 0.12 seconds.\n/quit severs the connection to the server you may be connected to and closes the app.\n/help displays info on the commands for this app.")
         elif self.proc != None:
             if message and message != self.placeholder_text:
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                message = timestamp + " " + self.alias + ": " + message
+                if (self.getting_internal_alias):
+                    self.session_id = random.randint(0, 1000000000)
+                    message = str(self.session_id) + " " + message
+                else:
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    message = timestamp + " " + self.alias + ": " + message
                 try:
                     self.proc.stdin.write(message + "\n")
                     self.proc.stdin.flush()
@@ -231,6 +241,8 @@ class ChatApp(ctk.CTk):
             message = message[1:]
         else:
             sender = "server"
+            if (message == "Input the alias you wish to be called by:"):
+                self.getting_internal_alias = True
         bubble_frame = ctk.CTkFrame(self.chat_scrollable, fg_color="transparent")
         bubble_frame.pack(fill="x", pady=4, padx=10)
 
@@ -248,9 +260,9 @@ class ChatApp(ctk.CTk):
 
         chars_per_line = 67
         logical_lines = message.split("\n")
-        wrapped_lines = sum((len(line) // chars_per_line + 1) for line in logical_lines)
+        wrapped_lines = sum((len(line) // chars_per_line) for line in logical_lines) + len(logical_lines)
         num_lines = max(self.min_lines, min(self.max_lines, wrapped_lines))
-        height = 40 + (num_lines - 1) * (self.line_height - 20)
+        height = 45 + (num_lines - 1) * (self.line_height - 20)
 
         bubble = ctk.CTkTextbox(
             bubble_frame,
