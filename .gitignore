@@ -1,2 +1,6 @@
 src/messageHistory.txt
 src/*.pem
+src/messageHistory.txt
+src/messageHistory.enc
+src/*.pem
+src/password_hash.bin

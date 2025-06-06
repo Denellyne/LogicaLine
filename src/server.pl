@@ -1,5 +1,6 @@
 :- use_module(library(socket)).
 :- use_module(library(pcre)).
+:- ['./Utils/utils.pl'].
 
 :- dynamic ips/1.
 :- dynamic connections/1. % ip
@@ -80,10 +81,6 @@ broadcast_notification(Message) :-
     findall(X, connections(X), Connections),
     send_message_to_client(Message, Connections, []).
 
-keep_alive(StreamPair) :-
-    sleep(15),
-    write_to_stream(StreamPair, ""),
-    keep_alive(StreamPair).
 
 handle_client(StreamPair, Peer) :-
     stream_pair(StreamPair, In, _Out),
@@ -136,19 +133,6 @@ send_message_to_client_list([], _).
 send_message_to_client_list([Message|Rest], Clients) :-
     send_message_to_client(Message, Clients),
     send_message_to_client_list(Rest, Clients).
-
-write_to_stream(StreamPair, String) :-
-    stream_pair(StreamPair, _, Out),
-    writeln(Out, String),
-    flush_output(Out).
-
-format_string(Alias, Input, String, TimeStamp) :-
-    get_time(TimestampCurr),
-    format_time(string(Time), "%a, %d %b %Y %T ", TimestampCurr),
-    TimeStamp = Time,
-    string_concat(Alias, Input, String_No_Date),
-    string_concat(Time, String_No_Date, String).
-
 
 broadcast_message(Input, SenderStream) :-
     findall(X, connections(X), Connections),
