@@ -26,17 +26,22 @@
 :- use_module(library(crypto)).
 :- use_module(library(readutil)).
 
-% Constants/Facts
-alg_data('aes-128-gcm').
-alg_data_hkdf(sha256).
-alg_psw_hash('pbkdf2-sha512').
-
 % TODO - Consider Unifying these Facts with a seperate knowledgebase
 % or .properties file for modular file names.
+%% Filepath for storing a hashed password. Hash is used to validate a password.
 password_hash_file('password_hash.bin').
 
+%% Filepath for storing encrypted message history.
 message_enc_file('messageHistory.enc').
+%% Filepath for storing plain text message history.
 message_txt_file('messageHistory.txt').
+
+%% Symmetric encryption algorithm
+alg_data('aes-128-gcm').
+%% HKDF hashing algorithm
+alg_data_hkdf(sha256).
+%% Password hashing algorithm
+alg_psw_hash('pbkdf2-sha512').
 
 alg_data_decrypt(Alg):- alg_data(Alg).
 alg_data_encrypt(Alg):- alg_data(Alg).
@@ -92,12 +97,11 @@ verify_password(Password) :-
     %  @see verify_password/1
     %  @see store_password_hash/1
     %  @see encrypt_message_history/1
-change_password(CurrPassword, NewPassword) :-
+change_password(CurrPassword, NewPassword):-
     verify_password(CurrPassword),
     store_password_hash(NewPassword),
-
-    % TODO check messageHistory.txt, message history must be in a decrypted state to change passwords)
-    encrypt_message_history(NewPassword).
+    message_txt_file(Txt),
+    (exists_file(Txt) -> encrypt_message_history(NewPassword) ; false).
 
 %% password_salt_to_key_iv(+Password:string, +Salt:list(integer), -Key:list(integer), -IV:list(integer))
     %
@@ -112,18 +116,13 @@ change_password(CurrPassword, NewPassword) :-
     %  @see crypto_data_hkdf/4
     %  @see alg_psw_hash/1
     %  @see alg_data_hkdf/1
-password_salt_to_key_iv(Password, Salt, Key, IV) :-
-    writeln('HKDF starting ...'),
+password_salt_to_key_iv(Password, Salt, Key, IV):-
     alg_psw_hash(AlgPsw),
     crypto_password_hash(Password, Hash, [algorithm(AlgPsw), salt(Salt)]),
     
-    writeln('- done hashing password, salt ...'),
-    
     alg_data_hkdf(AlgHkdf),
     crypto_data_hkdf(Hash, 16, Key, [info("key"),algorithm(AlgHkdf)]),
-    writeln('- HKDF derived Key ...'),
     crypto_data_hkdf(Hash, 16, IV, [info("iv"),algorithm(AlgHkdf)]),
-    writeln('- HKDF derived IV ...').
 
 %% decrypt_message_history(+Password:string)
     %
@@ -140,9 +139,7 @@ password_salt_to_key_iv(Password, Salt, Key, IV) :-
     %  @see message_enc_file/1
     %  @see message_txt_file/1
 decrypt_message_history(Password) :-
-    writeln('decrypting ...'),
     verify_password(Password),
-    writeln('password is ok ...'),
     
     message_enc_file(InputFile),
     read_file_to_codes(InputFile, Codes, [type(binary)]),   
@@ -155,25 +152,12 @@ decrypt_message_history(Password) :-
 
     Salt = SaltCodes,
     Tag = TagCodes,
-    string_codes(CipherText, CipherCodes),
     
     password_salt_to_key_iv(Password, Salt, Key, IV),
-    writeln('Derivation of Key, IV passed ...\t'),
-
-    write('Cipher\t'),      writeln(CipherText),
-    write('Cipher\t'),      writeln(CipherCodes),
-    write('Salt\t'),        writeln(Salt),
-    write('Key\t'),         writeln(Key),
-    write('IV\t'),          writeln(IV),
-    write('Tag\t'),         writeln(Tag),
 
     alg_data_decrypt(Alg),
 
-    crypto_data_decrypt((CipherCodes), Alg, Key, IV, Plaintext, [tag(Tag)]),
-    writeln('data decrypt passed ...\t'),
-
-    format('Password: ~w~nSalt: ~w~nAlg: ~w~nKey: ~w~nIV: ~w~nTag: ~w~n', 
-           [Password, Salt, Alg, Key, IV, Tag]),
+    crypto_data_decrypt(CipherCodes, Alg, Key, IV, Plaintext, [tag(Tag)]),
 
     message_txt_file(OutputFile),
     setup_call_cleanup(
@@ -209,15 +193,6 @@ encrypt_message_history(Password) :-
     alg_data_encrypt(Alg),
     
     crypto_data_encrypt(Plaintext, Alg, Key, IV, Ciphertext, [tag(Tag)]),
-
-    write('Plaintext\t'),   writeln(Plaintext),
-    write('Cipher\t'),      writeln(Ciphertext),
-    string_codes(Ciphertext, CipherCodes),
-    write('Cipher\t'),      writeln(CipherCodes), 
-    write('Salt\t'),        writeln(Salt),
-    write('Key\t'),         writeln(Key),
-    write('IV\t'),          writeln(IV),
-    write('Tag\t'),         writeln(Tag),
 
     %   [16 byte Salt][16 byte Tag][Ciphertext]
     message_enc_file(OutputFile),
