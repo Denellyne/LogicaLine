@@ -27,7 +27,7 @@
 :- use_module(library(readutil)).
 
 % Constants/Facts
-alg_data_encrypt('aes-256-gcm').
+alg_data('aes-128-gcm').
 alg_data_hkdf(sha256).
 alg_psw_hash('pbkdf2-sha512').
 
@@ -38,7 +38,8 @@ password_hash_file('password_hash.bin').
 message_enc_file('messageHistory.enc').
 message_txt_file('messageHistory.txt').
 
-alg_data_decrypt(Alg):- alg_data_encrypt(Alg).
+alg_data_decrypt(Alg):- alg_data(Alg).
+alg_data_encrypt(Alg):- alg_data(Alg).
 
 % TODO: 
     % Define FileDoesNotExsist behavior. May be used to reset the chatroom message history.
@@ -74,12 +75,9 @@ store_password_hash(Password) :-
     %  @see password_hash_file/1
 verify_password(Password) :-
     password_hash_file(Path),
-    read_file_to_string(Path, HashStr, []),
-    atom_string(Hash, HashStr),
-    (   crypto_password_hash(Password, Hash)
-    ->  true % Password is ok
-    ;   false % Password is not okay
-    ).
+    read_file_to_codes(Path, HashCodes, [type(binary)]),
+    atom_codes(Hash, HashCodes),
+    crypto_password_hash(Password, Hash).
 
 %% change_password(+CurrentPassword:string, +NewPassword:string)
     %
@@ -101,7 +99,7 @@ change_password(CurrPassword, NewPassword) :-
     % TODO check messageHistory.txt, message history must be in a decrypted state to change passwords)
     encrypt_message_history(NewPassword).
 
-%% password_salt_to_key_iv(+Password:string, +Salt:atom, -Key:atom, -IV:atom)
+%% password_salt_to_key_iv(+Password:string, +Salt:list(integer), -Key:list(integer), -IV:list(integer))
     %
     %  Derives encryption key and initialization vector from password and salt.
     %  Uses HKDF with separate info tags for key and IV derivation.
@@ -115,12 +113,17 @@ change_password(CurrPassword, NewPassword) :-
     %  @see alg_psw_hash/1
     %  @see alg_data_hkdf/1
 password_salt_to_key_iv(Password, Salt, Key, IV) :-
+    writeln('HKDF starting ...'),
     alg_psw_hash(AlgPsw),
     crypto_password_hash(Password, Hash, [algorithm(AlgPsw), salt(Salt)]),
     
+    writeln('- done hashing password, salt ...'),
+    
     alg_data_hkdf(AlgHkdf),
     crypto_data_hkdf(Hash, 16, Key, [info("key"),algorithm(AlgHkdf)]),
-    crypto_data_hkdf(Hash, 16, IV, [info("iv"),algorithm(AlgHkdf)]).
+    writeln('- HKDF derived Key ...'),
+    crypto_data_hkdf(Hash, 16, IV, [info("iv"),algorithm(AlgHkdf)]),
+    writeln('- HKDF derived IV ...').
 
 %% decrypt_message_history(+Password:string)
     %
@@ -137,7 +140,9 @@ password_salt_to_key_iv(Password, Salt, Key, IV) :-
     %  @see message_enc_file/1
     %  @see message_txt_file/1
 decrypt_message_history(Password) :-
+    writeln('decrypting ...'),
     verify_password(Password),
+    writeln('password is ok ...'),
     
     message_enc_file(InputFile),
     read_file_to_codes(InputFile, Codes, [type(binary)]),   
@@ -148,23 +153,27 @@ decrypt_message_history(Password) :-
     length(TagCodes, 16),   %needed for data decrypt
     append(TagCodes, CipherCodes, Rest1),
 
-    atom_codes(Salt, SaltCodes),
-    atom_codes(Tag, TagCodes),
-    atom_codes(CipherText, CipherCodes),
-
-    write('Salt'), writeln(Salt),
-    write('SaltCodes'), writeln(SaltCodes),
-    write('Password'),writeln(Password),
-    write('Alg'),writeln(Alg),
-    write('Key'),writeln(Key),
-    write('IV'),writeln(IV),
-    write('Tag'),writeln(Tag),
-    write('TagCodes'), writeln(TagCodes),
+    Salt = SaltCodes,
+    Tag = TagCodes,
+    string_codes(CipherText, CipherCodes),
     
     password_salt_to_key_iv(Password, Salt, Key, IV),
+    writeln('Derivation of Key, IV passed ...\t'),
+
+    write('Cipher\t'),      writeln(CipherText),
+    write('Cipher\t'),      writeln(CipherCodes),
+    write('Salt\t'),        writeln(Salt),
+    write('Key\t'),         writeln(Key),
+    write('IV\t'),          writeln(IV),
+    write('Tag\t'),         writeln(Tag),
 
     alg_data_decrypt(Alg),
-    crypto_data_decrypt(CipherText, Alg, Key, IV, Plaintext, [tag(Tag)]),
+
+    crypto_data_decrypt((CipherCodes), Alg, Key, IV, Plaintext, [tag(Tag)]),
+    writeln('data decrypt passed ...\t'),
+
+    format('Password: ~w~nSalt: ~w~nAlg: ~w~nKey: ~w~nIV: ~w~nTag: ~w~n', 
+           [Password, Salt, Alg, Key, IV, Tag]),
 
     message_txt_file(OutputFile),
     setup_call_cleanup(
@@ -198,16 +207,18 @@ encrypt_message_history(Password) :-
     read_file_to_codes(InputFile, Plaintext, [type(binary)]),
     
     alg_data_encrypt(Alg),
-
-    write('Salt'), writeln(Salt),
-    write('Password'),writeln(Password),
-    write('Alg'),writeln(Alg),
-    write('Key'),writeln(Key),
-    write('IV'),writeln(IV),
-    write('Tag'),writeln(Tag),
-
-    crypto_data_encrypt(Plaintext, Alg, Key, IV, Ciphertext, [tag(Tag)]),
     
+    crypto_data_encrypt(Plaintext, Alg, Key, IV, Ciphertext, [tag(Tag)]),
+
+    write('Plaintext\t'),   writeln(Plaintext),
+    write('Cipher\t'),      writeln(Ciphertext),
+    string_codes(Ciphertext, CipherCodes),
+    write('Cipher\t'),      writeln(CipherCodes), 
+    write('Salt\t'),        writeln(Salt),
+    write('Key\t'),         writeln(Key),
+    write('IV\t'),          writeln(IV),
+    write('Tag\t'),         writeln(Tag),
+
     %   [16 byte Salt][16 byte Tag][Ciphertext]
     message_enc_file(OutputFile),
     setup_call_cleanup(
