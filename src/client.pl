@@ -1,30 +1,7 @@
-:- use_module(library(socket)).
-:- use_module(library(readutil)).
-:- use_module(library(pcre)).
-:- use_module(library(process)).
-:- use_module(library(http/json)).
-:- use_module(library(base64)).
-:- use_module(library(lists)).
-:- use_module(library(charsio)).
-:- use_module(library(apply)).
-:- use_module(library(system)).
+:- ['./Utils/includes.pl'].
+:- ['./Utils/utils.pl'].
+:- ['./Encryption/encryption.pl'].
 
-
-
-:- dynamic symmetric_keys/2.      % (StreamPair, Chave simétrica)
-:- dynamic public_key/1.
-:- dynamic private_key/1.
-:- dynamic symmetric_key/1.
-:- dynamic iv/1.
-
-
-
-format_string(Alias, Input, String, TimeStamp) :-
-    get_time(TimestampCurr),
-    format_time(string(Time), "%a, %d %b %Y %T ", TimestampCurr),
-    TimeStamp = Time,
-    string_concat(Alias, Input, String_No_Date),
-    string_concat(Time, String_No_Date, String).
 
 get_alias(Alias) :-
     writeln("Input the alias you wish to be called by:"),
@@ -37,7 +14,6 @@ get_alias(Alias) :-
        )
       ) 
     ).
-% string_length(AliasNoFormat,0) -> fail;
 
 setup_client(Ip, Port, AliasNoFormat) :-
     string_concat(AliasNoFormat, ": ", Alias),
@@ -78,11 +54,6 @@ setup_client(Port) :-
 
 close_connection(StreamPair) :-
     close(StreamPair, [force(true)]).
-
-keep_alive(StreamPair) :-
-    sleep(15),
-    write_to_stream(StreamPair, ""),
-    keep_alive(StreamPair).
 
 
 handle_connection(StreamPair, Alias) :-
@@ -168,10 +139,6 @@ receive_messages(StreamPair) :-
         )
     ).
 
-write_to_stream(StreamPair, String) :-
-    stream_pair(StreamPair, _, Out),
-    writeln(Out, String),
-    flush_output(Out).
 
 send_messages(StreamPair, Alias) :-
     stream_property(StreamPair, error(Err)),
@@ -197,82 +164,6 @@ send_messages(StreamPair, Alias) :-
     ).
 
 
-load_keys_from_python(Priv, Pub, SymmetricKeyBin) :-
-    process_create(path(python3), ['new_generate_keys.py'], [stdout(pipe(Out)), process(PID)]),
-    read_stream_to_codes(Out, _Codes),
-    close(Out),
-    process_wait(PID, ExitStatus),
-    ( ExitStatus = exit(0) ->
-          crypto_n_random_bytes(16, SymmetricKeyBin),
-          crypto_n_random_bytes(12, IV),
-          carregar_chaves(Priv, Pub),
-          assertz(private_key(Priv)),
-          assertz(public_key(Pub)),
-          assertz(symmetric_key(SymmetricKeyBin)),
-          assertz(iv(IV))
-    ;
-      format("Erro ao executar o script Python para gerar as chaves.~n"),
-      fail
-    ).
-
-
-base64_encode_atom(Binary, Base64Atom) :-
-    base64_encoded(Binary, Base64Codes, []),
-    atom_codes(Base64Atom, Base64Codes).
-
-base64_decode_atom(Base64Atom, Binary) :-
-    atom_codes(Base64Atom, Base64Codes),
-    base64_encoded(Binary, Base64Codes, []).
-
-load_private_key_from_der_bytes(DERBytes, PrivateKeyTerm) :-
-    is_list(DERBytes),
-    forall(member(B, DERBytes), integer(B)),
-    open_memory_file(MemFile, write, Out),
-    maplist(put_byte(Out), DERBytes),
-    close(Out),
-    open_memory_file(MemFile, read, In, [encoding(octet)]),
-    catch(
-        load_private_key(In, private_key(PrivateKeyTerm), []),
-        E,
-        ( close(In), free_memory_file(MemFile), throw(E) )
-    ),
-    close(In),
-    free_memory_file(MemFile).
-
-
-load_public_key_from_der_bytes(DERBytes, PublicKeyTerm) :-
-    is_list(DERBytes),
-    forall(member(B, DERBytes), integer(B)),
-    open_memory_file(MemFile, write, Out),
-    maplist(put_byte(Out), DERBytes),
-    close(Out),
-    open_memory_file(MemFile, read, In, [encoding(octet)]),
-    catch(
-        load_public_key(In, public_key(PublicKeyTerm)),
-        E,
-        ( close(In), free_memory_file(MemFile), throw(E) )
-    ),
-    close(In),
-    free_memory_file(MemFile).
-
-
-carregar_chaves(PrivKey, PubKey) :-
-    open('private_key.pem', read, PrivStream, [type(binary)]),
-    load_private_key(PrivStream, '', PrivKey),
-    close(PrivStream),
-
-    open('public_key.pem', read, PubStream, [type(binary)]),
-    load_public_key(PubStream, PubKey),
-    close(PubStream).
-
-
-converte_string_para_termo(String, Term) :-
-    atom_string(Atom, String),
-    atom_to_term(Atom, Term, _).
-
-converte_termo_para_string(Term, String) :-
-    term_to_atom(Term, Atom),
-    atom_string(Atom, String).
 
 
 
