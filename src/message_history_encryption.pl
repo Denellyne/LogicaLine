@@ -107,22 +107,24 @@ change_password(CurrPassword, NewPassword):-
     %
     %  Derives encryption key and initialization vector from password and salt.
     %  Uses HKDF with separate info tags for key and IV derivation.
+    %  Note that the length of the derived Key and IV are set for {@code algorithm('aes-128-gcm')}
     %
     %  @param Password The plaintext password
-    %  @param Salt     Random salt value (16 bytes)
+    %  @param Salt     Salt value (16 bytes). This should be randomly generated.
     %  @param Key      Output encryption key (16 bytes)
-    %  @param IV       Output initialization vector (16 bytes)
+    %  @param IV       Output initialization vector (12 bytes)
     %  @see crypto_password_hash/3
     %  @see crypto_data_hkdf/4
     %  @see alg_psw_hash/1
     %  @see alg_data_hkdf/1
-password_salt_to_key_iv(Password, Salt, Key, IV):-
+    %  @see alg_data/1
+password_salt_to_key_iv(Password, Salt, Key, IV) :-
     alg_psw_hash(AlgPsw),
     crypto_password_hash(Password, Hash, [algorithm(AlgPsw), salt(Salt)]),
     
     alg_data_hkdf(AlgHkdf),
     crypto_data_hkdf(Hash, 16, Key, [info("key"),algorithm(AlgHkdf)]),
-    crypto_data_hkdf(Hash, 16, IV, [info("iv"),algorithm(AlgHkdf)]),
+    crypto_data_hkdf(Hash, 12, IV, [info("iv"),algorithm(AlgHkdf)]).
 
 %% decrypt_message_history(+Password:string)
     %
