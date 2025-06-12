@@ -49,53 +49,84 @@
     including password hashing, authenticated encryption, and key derivation.
 
     ## Module Details
-        - Implements AES-256-GCM authenticated encryption
+        - By default: data encryption uses AES-256-GCM, 
+            password hasing uses `pbkdf2-sha512`, 
+            and the hkdf algorithm uses sha256 key and IV derivation.
         - Uses HKDF for key derivation from passwords
         - Stores salt, authentication tags and encrypted messages in the ecryption output file. (message_enc_file/1).
         - A fresh salt is generated randomly every time file is encrypted.
-        - Requires OpenSSL 1.1.0+ for cryptographic operations
-
-    ## First time use setup
-        Create and verify a new password.
-        Encrypt the storage file (message_enc_file/1).
-        Decrypt the storage file (message_txt_file/1).
-        
-            Password='_42_',  
-            store_password_hash(Password),  
-            verify_password(Password),  
-            encrypt_message_history(Password),  
-            decrypt_message_history(Password)  
+        - Requires OpenSSL 1.1.0+ for cryptographic operations 
         
     @version 1.0.0
     @see library(crypto)
-    @tbd Modularisation of filepath and algorithm definition for facts in this module. 
+    @tbd Modularisation of filepath and encryption algorithms used. 
     @tbd Error handling.
-    @tbd Removing TXT file after encryption.
+    @tbd Removing readable file after encryption.
 */
 
-%% Filepath for storing a password's hash. 
+/**
+    Filepath for storing a password's hash. 
+*/
 % Stored hash is used to validate a password.
 password_hash_file('password_hash.bin').
-
-%% Filepath for storing encrypted message history.
-%
+/**
+    Filepath for storing encrypted message history.
+*/
 message_enc_file('messageHistory.enc').
-%% Filepath for storing plain text message history.
-%
+/**
+    Filepath for storing plain text message history.
+*/
 message_txt_file('messageHistory.txt').
 
-%% Symmetric encryption algorithm
-%
+/**
+    Symmetric encryption algorithm
+*/
 alg_data('aes-128-gcm').
-%% HKDF hashing algorithm
-%
+/**
+    HKDF hashing algorithm
+*/
 alg_data_hkdf(sha256).
-%% Password hashing algorithm
-%
+/**
+    Password hashing algorithm
+*/
 alg_psw_hash('pbkdf2-sha512').
 
 alg_data_decrypt(Alg):- alg_data(Alg).
 alg_data_encrypt(Alg):- alg_data(Alg).
+
+%% setup_history(+NewPassword, ?PlainFile, ?EncryptedFile, ?PasswordFile)
+%
+%  Function for first time use setup of history encryption. 
+%  Confirms that message_text_file/1, message_enc_file/1, and password_hash_file/1 are correct
+%  compared to the respective ´PlainFile´, `EncryptedFile` or `PasswordFile` filepaths provided.
+%  Setup requires that the `EncryptedFile` file does not exist.
+%
+%  @param NewPassword the plaintext password to encrypt history.
+%  @param PlainFile the filepath for the readable message history file.
+%  @param EncryptedFile the filepath for the encrypted message history file.
+%  @param PasswordFile the filepath for the file stroting the password hash.
+%
+%  @throws existence_error If unable to write to plain histroy file, encrypted history file or password hash file.
+%  
+%  @see password_hash_file/1
+%  @see message_txt_file/1
+%  @see message_enc_file/1
+setup(NewPassword, PlainFile, EncryptedFile, PasswordFile):-
+    message_txt_file(PlainFile),
+    message_enc_file(EncryptedFile),
+    password_hash_file(PasswordFile),
+    (% Create the PlainFile if it doesnt exist.
+        (\+ exists_file(PlainFile)) -> (open(PlainFile, write, Stream), close(Stream))
+    ;
+        true
+    ),
+    % If there is no encrypted history, create one.
+    (\+ exists_file(EncryptedFile)),   
+    store_password_hash(NewPassword),
+    verify_password(NewPassword),
+    encrypt_message_history(NewPassword),
+    decrypt_message_history(NewPassword).
+
 
 %% store_password_hash(+Password:string)
 %
