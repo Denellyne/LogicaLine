@@ -1,6 +1,6 @@
 # Logica Line
 
-### A Secure Prolog Based Chat Server built with your Privacy in mind
+### A secure Prolog based chat server built with your privacy in mind
 
 # Features
 
@@ -24,6 +24,6 @@
 
 <img src="https://github.com/user-attachments/assets/bcd1bd5f-7190-4550-98b5-fa1977d08265" style="width:55%;">
 
-# Made By
+# Made by
 
 ## [Fabio Semedo](https://github.com/FabioSemedo), [Gabriel Carlos](https://github.com/Furkhtmensch), [Gonçalo Branquinho](https://github.com/GoncaloBranquinho), [Gustavo dos Santos](https://github.com/Denellyne)
