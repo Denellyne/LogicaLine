@@ -10,6 +10,14 @@
 
   * Minimalistic User Interface
 
+# Requirements
+
+  * Install dependencies from src/requirements.txt
+
+  * SWI-Prolog 9.0+
+
+  * OpenSSL 1.1.1+
+
 # Video Showcase
 
 <a href="https://www.youtube.com/watch?v=zRJ24DS3l5U">
