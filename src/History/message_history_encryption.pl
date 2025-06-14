@@ -1,8 +1,5 @@
 /*
     Part of Logica Line
-
-    Author: Fábio E. R. Semedo
-    Git:    https://github.com/FabioSemedo
     
     MIT License
     Copyright (c) 2025  Fabio Semedo, 
