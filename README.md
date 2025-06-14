@@ -10,7 +10,9 @@
 
   * Minimalistic User Interface
 
-# Requirements
+# System Requirements
+
+  * Version 1.0 runs on Linux
 
   * Install dependencies from src/requirements.txt
 
