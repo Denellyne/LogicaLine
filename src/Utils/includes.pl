@@ -1,0 +1,10 @@
+:- use_module(library(socket)).
+:- use_module(library(readutil)).
+:- use_module(library(pcre)).
+:- use_module(library(process)).
+:- use_module(library(http/json)).
+:- use_module(library(base64)).
+:- use_module(library(lists)).
+:- use_module(library(charsio)).
+:- use_module(library(apply)).
+:- use_module(library(system)).

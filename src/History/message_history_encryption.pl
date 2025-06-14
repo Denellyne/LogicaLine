@@ -37,8 +37,10 @@
     encrypt_message_history/1   % +Password
     ]).
 
+
 :- use_module(library(crypto)).
 :- use_module(library(readutil)).
+
 
 /** <module> Secure file encryption and decryption
 
@@ -86,10 +88,12 @@ alg_data_hkdf(sha256).
 /**
     Password hashing algorithm
 */
+
 alg_psw_hash('pbkdf2-sha512').
 
 alg_data_decrypt(Alg):- alg_data(Alg).
 alg_data_encrypt(Alg):- alg_data(Alg).
+
 
 %% setup_history(+NewPassword, ?PlainFile, ?EncryptedFile, ?PasswordFile)
 %
@@ -134,6 +138,7 @@ setup(NewPassword, PlainFile, EncryptedFile, PasswordFile):-
 %  @throws permission_error If unable to write to password hash file
 %  @see crypto_password_hash/3
 %  @see password_hash_file/1
+
 store_password_hash(Password) :-
     alg_psw_hash(Alg),
     crypto_password_hash(Password, Hash, [algorithm(Alg)]),
@@ -144,6 +149,7 @@ store_password_hash(Password) :-
         close(Stream)).
 
 %% verify_password(+Password:string)
+
 %
 %  Validates whether the given password matches the stored password hash.
 %  Matching is done with crypto_password_hash/2.
@@ -153,6 +159,7 @@ store_password_hash(Password) :-
 %  @throws existence_error If password hash file doesn't exist
 %  @see crypto_password_hash/2
 %  @see password_hash_file/1
+
 verify_password(Password) :-
     password_hash_file(Path),
     read_file_to_codes(Path, HashCodes, [type(binary)]),
@@ -160,6 +167,7 @@ verify_password(Password) :-
     crypto_password_hash(Password, Hash).
 
 %% change_password(+CurrentPassword:string, +NewPassword:string)
+
 %
 %  Changes the stored password and re-encrypts message history with new password.
 %  Requires the given current password to be valid.
@@ -172,6 +180,7 @@ verify_password(Password) :-
 %  @see verify_password/1
 %  @see store_password_hash/1
 %  @see encrypt_message_history/1
+
 change_password(CurrPassword, NewPassword):-
     verify_password(CurrPassword),
     store_password_hash(NewPassword),
@@ -179,6 +188,7 @@ change_password(CurrPassword, NewPassword):-
     (exists_file(Txt) -> encrypt_message_history(NewPassword) ; false).
 
 %% password_salt_to_key_iv(+Password:string, +Salt:list(integer), -Key:list(integer), -IV:list(integer))
+
 %
 %  Derives encryption key and initialization vector from password and salt.  
 %  Uses HKDF with separate info tags for key and IV derivation.  
@@ -193,6 +203,7 @@ change_password(CurrPassword, NewPassword):-
 %  @see alg_psw_hash/1
 %  @see alg_data_hkdf/1
 %  @see alg_data/1
+
 password_salt_to_key_iv(Password, Salt, Key, IV) :-
     alg_psw_hash(AlgPsw),
     crypto_password_hash(Password, Hash, [algorithm(AlgPsw), salt(Salt)]),
@@ -202,6 +213,7 @@ password_salt_to_key_iv(Password, Salt, Key, IV) :-
     crypto_data_hkdf(Hash, 12, IV, [info("iv"),algorithm(AlgHkdf)]).
 
 %% decrypt_message_history(+Password:string)
+
 %
 %  Decrypts the message history file using the provided password.
 %  Verifies password first and performs authenticated decryption.
@@ -215,6 +227,7 @@ password_salt_to_key_iv(Password, Salt, Key, IV) :-
 %  @see crypto_data_decrypt/6
 %  @see message_enc_file/1
 %  @see message_txt_file/1
+
 decrypt_message_history(Password) :-
     verify_password(Password),
     
@@ -245,6 +258,7 @@ decrypt_message_history(Password) :-
 
 
 %% encrypt_message_history(+Password:string)
+
 %
 %  Encrypts the message history file using the provided password.
 %  Generates new salt and uses authenticated encryption.
@@ -259,6 +273,7 @@ decrypt_message_history(Password) :-
 %  @see crypto_data_encrypt/6
 %  @see message_txt_file/1
 %  @see message_enc_file/1
+
 encrypt_message_history(Password) :-
     crypto_n_random_bytes(16, Salt),
     
